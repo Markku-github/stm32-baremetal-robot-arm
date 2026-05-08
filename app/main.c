@@ -1,7 +1,7 @@
 /**
  ******************************************************************************
  * @file    main.c
- * @brief   V0 application entry point for board bring-up and USART6 echo testing
+ * @brief   V0 application entry point for board bring-up, PCA9685 probing, and USART6 echo testing
  ******************************************************************************
  */
 
@@ -139,7 +139,7 @@ static void process_debug_uart_input(bool debug_uart_rx_ready)
 }
 
 /**
- * @brief  Initialize the board and run the V0 UART echo bring-up loop
+ * @brief  Initialize the board, verify PCA9685 communication, and run the V0 UART echo loop
  * @retval int  This function does not return during normal operation.
  */
 int main(void)

@@ -4,7 +4,7 @@ This repository contains bare-metal firmware for an STM32 Nucleo-F767ZI based co
 
 ## Current implementation status
 
-The implemented baseline currently includes:
+The implemented V0 baseline currently includes:
 
 - repository scaffold for the planned firmware modules
 - CMake and Ninja build configuration for `arm-none-eabi-gcc`
@@ -14,12 +14,15 @@ The implemented baseline currently includes:
 - GPIO output support and Nucleo-F767ZI LD1 control
 - USART6 transmit support for the external CH340 adapter
 - interrupt-driven USART6 receive buffering with a simple echo test loop
+- I2C1 bring-up on `PB8`/`PB9` for the PCA9685 bus
+- PCA9685 communication verification through a `MODE1` register smoke test at address `0x40`
 
 ## Hardware baseline
 
 - target board: STM32 Nucleo-F767ZI
 - debug LED: LD1 on `PB0`
 - debug UART: `USART6`, `PG14` TX, `PG9` RX, `115200 8N1`
+- PCA9685 test bus: `I2C1`, `PB8` SCL, `PB9` SDA, default address `0x40`
 - application serial adapter: external CH340 USB-UART bridge
 - flashing path: onboard ST-LINK over SWD via `STM32_Programmer_CLI.exe`
 

@@ -1,7 +1,7 @@
 /**
  ******************************************************************************
  * @file    board_nucleo_f767zi.h
- * @brief   Nucleo-F767ZI board-level wrappers for LED and debug UART access
+ * @brief   Nucleo-F767ZI board-level wrappers for LED, debug UART, and I2C access
  ******************************************************************************
  */
 

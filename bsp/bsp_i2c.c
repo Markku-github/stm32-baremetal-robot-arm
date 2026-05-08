@@ -55,6 +55,12 @@ static void bsp_i2c_request_stop(stm32_i2c_registers_t *i2c)
     }
 }
 
+static void bsp_i2c_abort_transfer(stm32_i2c_registers_t *i2c)
+{
+    bsp_i2c_request_stop(i2c);
+    bsp_i2c_clear_status_flags(i2c);
+}
+
 static bsp_i2c_status_t bsp_i2c_check_error_flags(stm32_i2c_registers_t *i2c)
 {
     const uint32_t isr = i2c->ISR;
@@ -91,6 +97,7 @@ static bsp_i2c_status_t bsp_i2c_wait_for_flag(stm32_i2c_registers_t *i2c, uint32
 
         if (timeout == 0U)
         {
+            bsp_i2c_abort_transfer(i2c);
             return BSP_I2C_ERR_TIMEOUT;
         }
 
@@ -115,6 +122,7 @@ static bsp_i2c_status_t bsp_i2c_wait_until_idle(stm32_i2c_registers_t *i2c)
 
         if (timeout == 0U)
         {
+            bsp_i2c_abort_transfer(i2c);
             return BSP_I2C_ERR_TIMEOUT;
         }
 
