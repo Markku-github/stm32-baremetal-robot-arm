@@ -6,5 +6,6 @@
 extern uint32_t SystemCoreClock;
 
 void SystemInit(void);
+void SystemCoreClockUpdate(void);
 
 #endif

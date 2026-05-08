@@ -1,8 +1,32 @@
 #include "system_stm32f7xx.h"
+#include "stm32f767_registers.h"
 
-uint32_t SystemCoreClock = 16000000U;
+#define HSI_FREQUENCY_HZ 16000000U
+
+uint32_t SystemCoreClock = HSI_FREQUENCY_HZ;
+
+static void system_clock_reset_to_hsi(void)
+{
+    SCB_CPACR |= SCB_CPACR_CP10_CP11_FULL_ACCESS;
+
+    RCC->CR |= RCC_CR_HSION;
+
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0U)
+    {
+    }
+
+    RCC->CFGR &= ~RCC_CFGR_SW_MASK;
+    RCC->CR &= ~(RCC_CR_HSEON | RCC_CR_HSEBYP | RCC_CR_CSSON | RCC_CR_PLLON);
+    FLASH->ACR = 0U;
+}
+
+void SystemCoreClockUpdate(void)
+{
+    SystemCoreClock = HSI_FREQUENCY_HZ;
+}
 
 void SystemInit(void)
 {
-    SystemCoreClock = 16000000U;
+    system_clock_reset_to_hsi();
+    SystemCoreClockUpdate();
 }
