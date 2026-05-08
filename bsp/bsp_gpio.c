@@ -1,3 +1,10 @@
+/**
+ ******************************************************************************
+ * @file    bsp_gpio.c
+ * @brief   GPIO output and alternate-function configuration implementation
+ ******************************************************************************
+ */
+
 #include "bsp_gpio.h"
 
 #include "stm32f767_registers.h"

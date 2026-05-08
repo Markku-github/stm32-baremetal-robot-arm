@@ -1,3 +1,10 @@
+/**
+ ******************************************************************************
+ * @file    bsp_uart.c
+ * @brief   Minimal UART driver implementation for early STM32F767 bring-up
+ ******************************************************************************
+ */
+
 #include "bsp_uart.h"
 
 #include "stm32f767_registers.h"
@@ -16,9 +23,12 @@ typedef struct
 
 static bsp_uart_rx_buffer_t bsp_uart_rx_buffers[BSP_UART_INSTANCE_USART6 + 1U];
 
+/**
+ * @brief  Insert a short post-enable delay observed to stabilize early UART bring-up
+ * @retval None
+ */
 static void bsp_uart_startup_delay(void)
 {
-    /* Give the UART a short post-enable settle time observed on hardware bring-up. */
     volatile uint32_t cycles = 10000U;
 
     while (cycles > 0U)
@@ -89,6 +99,14 @@ static void bsp_uart_reset_rx_buffer(bsp_uart_instance_t instance, bool rx_enabl
     rx_buffer->rx_enabled = rx_enabled;
 }
 
+/**
+ * @brief  Store one received byte into the UART ring buffer when space is available
+ * @param  instance: UART instance that received the byte
+ * @param  byte: received byte to store
+ * @retval None
+ * @note   The newest byte is dropped when the buffer is full and the overflow
+ *         flag is raised for the main loop.
+ */
 static void bsp_uart_store_received_byte(bsp_uart_instance_t instance, uint8_t byte)
 {
     bsp_uart_rx_buffer_t *rx_buffer = bsp_uart_rx_buffer(instance);
@@ -110,6 +128,11 @@ static void bsp_uart_store_received_byte(bsp_uart_instance_t instance, uint8_t b
     rx_buffer->head = next_head;
 }
 
+/**
+ * @brief  Drain all currently pending received bytes from the UART data register
+ * @param  instance: UART instance that triggered the interrupt
+ * @retval None
+ */
 static void bsp_uart_handle_rx_interrupt(bsp_uart_instance_t instance)
 {
     stm32_usart_registers_t *usart = bsp_uart_registers(instance);
@@ -296,6 +319,10 @@ bsp_uart_status_t bsp_uart_write_string(bsp_uart_instance_t instance, const char
     return BSP_UART_OK;
 }
 
+/**
+ * @brief  USART6 receive interrupt handler for the V0 debug UART path
+ * @retval None
+ */
 void USART6_IRQHandler(void)
 {
     bsp_uart_handle_rx_interrupt(BSP_UART_INSTANCE_USART6);

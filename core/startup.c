@@ -1,3 +1,10 @@
+/**
+ ******************************************************************************
+ * @file    startup.c
+ * @brief   Freestanding startup code and vector table for STM32F767 bring-up
+ ******************************************************************************
+ */
+
 #include <stdint.h>
 
 #include "system_stm32f7xx.h"
@@ -66,6 +73,10 @@ static void initialize_bss(void)
     }
 }
 
+/**
+ * @brief  Reset entry point that initializes memory and calls the application
+ * @retval None
+ */
 void Reset_Handler(void)
 {
     initialize_data();
@@ -79,6 +90,10 @@ void Reset_Handler(void)
     }
 }
 
+/**
+ * @brief  Default handler for unexpected faults and unimplemented interrupts
+ * @retval None
+ */
 void Default_Handler(void)
 {
     for (;;)

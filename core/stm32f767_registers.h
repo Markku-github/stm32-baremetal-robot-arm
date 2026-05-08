@@ -1,3 +1,10 @@
+/**
+ ******************************************************************************
+ * @file    stm32f767_registers.h
+ * @brief   Minimal STM32F767 register definitions used by the current firmware
+ ******************************************************************************
+ */
+
 #ifndef STM32F767_REGISTERS_H
 #define STM32F767_REGISTERS_H
 
@@ -95,11 +102,21 @@ typedef struct
 #define USART_CR1_RE (1UL << 2)
 #define USART_CR1_RXNEIE (1UL << 5)
 
+/**
+ * @brief  Resolve a GPIO port register block from its zero-based port index
+ * @param  port_index: zero-based GPIO port index
+ * @retval stm32_gpio_registers_t*  Pointer to the selected GPIO register block
+ */
 static inline stm32_gpio_registers_t *stm32_gpio_port(uint32_t port_index)
 {
     return (stm32_gpio_registers_t *)(GPIOA_BASE_ADDRESS + (GPIO_PORT_STRIDE * port_index));
 }
 
+/**
+ * @brief  Enable an interrupt line in the NVIC set-enable register array
+ * @param  irq_number: IRQ number to enable
+ * @retval None
+ */
 static inline void stm32_nvic_enable_irq(uint32_t irq_number)
 {
     volatile uint32_t *iser = (volatile uint32_t *)(NVIC_ISER_BASE_ADDRESS + ((irq_number / 32U) * sizeof(uint32_t)));

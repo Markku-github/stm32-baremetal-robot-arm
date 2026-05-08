@@ -1,3 +1,10 @@
+/**
+ ******************************************************************************
+ * @file    main.c
+ * @brief   V0 application entry point for board bring-up and USART6 echo testing
+ ******************************************************************************
+ */
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -6,6 +13,11 @@
 #define MAIN_LOOP_DELAY_CYCLES 20000U
 #define MAIN_LED_TOGGLE_TICKS 100U
 
+/**
+ * @brief  Provide a short busy-wait delay for the cooperative main loop
+ * @param  cycles: loop iterations to wait
+ * @retval None
+ */
 static void boot_delay(volatile uint32_t cycles)
 {
     while (cycles > 0U)
@@ -14,6 +26,13 @@ static void boot_delay(volatile uint32_t cycles)
     }
 }
 
+/**
+ * @brief  Drain and echo received bytes from the debug UART ring buffer
+ * @param  debug_uart_rx_ready: true when USART6 RX interrupts were enabled
+ * @retval None
+ * @note   Line handling stays in thread context so the interrupt handler only
+ *         captures received bytes.
+ */
 static void process_debug_uart_input(bool debug_uart_rx_ready)
 {
     static bool previous_byte_was_carriage_return = false;
@@ -77,6 +96,10 @@ static void process_debug_uart_input(bool debug_uart_rx_ready)
     }
 }
 
+/**
+ * @brief  Initialize the board and run the V0 UART echo bring-up loop
+ * @retval int  This function does not return during normal operation.
+ */
 int main(void)
 {
     uint32_t led_tick_counter = 0U;

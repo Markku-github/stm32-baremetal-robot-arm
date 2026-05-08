@@ -1,3 +1,10 @@
+/**
+ ******************************************************************************
+ * @file    bsp_gpio.h
+ * @brief   GPIO output and alternate-function configuration interface
+ ******************************************************************************
+ */
+
 #ifndef BSP_GPIO_H
 #define BSP_GPIO_H
 
@@ -65,9 +72,39 @@ typedef struct
     bsp_gpio_speed_t speed;
 } bsp_gpio_alternate_function_config_t;
 
+/**
+ * @brief  Configure a GPIO pin as a digital output
+ * @param  config: pointer to the output configuration structure
+ * @retval BSP_GPIO_OK: pin configured successfully
+ * @retval BSP_GPIO_ERR_INVALID_ARGUMENT: configuration pointer or pin selection invalid
+ */
 bsp_gpio_status_t bsp_gpio_init_output(const bsp_gpio_output_config_t *config);
+
+/**
+ * @brief  Configure a GPIO pin for an alternate peripheral function
+ * @param  config: pointer to the alternate-function configuration structure
+ * @retval BSP_GPIO_OK: pin configured successfully
+ * @retval BSP_GPIO_ERR_INVALID_ARGUMENT: configuration pointer or pin selection invalid
+ */
 bsp_gpio_status_t bsp_gpio_init_alternate_function(const bsp_gpio_alternate_function_config_t *config);
+
+/**
+ * @brief  Drive a GPIO output pin to the requested logic level
+ * @param  port: GPIO port identifier
+ * @param  pin: GPIO pin number within the selected port
+ * @param  level: output level to write
+ * @retval BSP_GPIO_OK: pin updated successfully
+ * @retval BSP_GPIO_ERR_INVALID_ARGUMENT: port or pin index invalid
+ */
 bsp_gpio_status_t bsp_gpio_write_pin(bsp_gpio_port_t port, uint8_t pin, bool level);
+
+/**
+ * @brief  Toggle the current logic level of a GPIO output pin
+ * @param  port: GPIO port identifier
+ * @param  pin: GPIO pin number within the selected port
+ * @retval BSP_GPIO_OK: pin toggled successfully
+ * @retval BSP_GPIO_ERR_INVALID_ARGUMENT: port or pin index invalid
+ */
 bsp_gpio_status_t bsp_gpio_toggle_pin(bsp_gpio_port_t port, uint8_t pin);
 
 #endif
