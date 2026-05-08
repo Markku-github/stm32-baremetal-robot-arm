@@ -1,0 +1,6 @@
+# Keep repository text files normalized to LF across platforms.
+* text=auto eol=lf
+
+# Preserve Windows-native line endings if these script types are added later.
+*.bat text eol=crlf
+*.cmd text eol=crlf
