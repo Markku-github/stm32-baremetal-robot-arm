@@ -63,6 +63,8 @@ typedef struct
 #define GPIO_PORT_STRIDE 0x00000400UL
 #define USART2_BASE_ADDRESS 0x40004400UL
 #define USART6_BASE_ADDRESS 0x40011400UL
+#define NVIC_ISER_BASE_ADDRESS 0xE000E100UL
+#define USART6_IRQ_NUMBER 71U
 #define SCB_CPACR (*(volatile uint32_t *)0xE000ED88UL)
 
 #define RCC ((stm32_rcc_registers_t *)RCC_BASE_ADDRESS)
@@ -85,15 +87,24 @@ typedef struct
 #define RCC_APB1ENR_USART2EN (1UL << 17)
 #define RCC_APB2ENR_USART6EN (1UL << 5)
 
+#define USART_ISR_RXNE (1UL << 5)
 #define USART_ISR_TXE (1UL << 7)
 
 #define USART_CR1_UE (1UL << 0)
 #define USART_CR1_TE (1UL << 3)
 #define USART_CR1_RE (1UL << 2)
+#define USART_CR1_RXNEIE (1UL << 5)
 
 static inline stm32_gpio_registers_t *stm32_gpio_port(uint32_t port_index)
 {
     return (stm32_gpio_registers_t *)(GPIOA_BASE_ADDRESS + (GPIO_PORT_STRIDE * port_index));
+}
+
+static inline void stm32_nvic_enable_irq(uint32_t irq_number)
+{
+    volatile uint32_t *iser = (volatile uint32_t *)(NVIC_ISER_BASE_ADDRESS + ((irq_number / 32U) * sizeof(uint32_t)));
+
+    *iser = (1UL << (irq_number % 32U));
 }
 
 #endif

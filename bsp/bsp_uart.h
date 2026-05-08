@@ -11,6 +11,7 @@ typedef enum
     BSP_UART_OK = 0,
     BSP_UART_ERR_INVALID_ARGUMENT,
     BSP_UART_ERR_UNSUPPORTED_INSTANCE,
+    BSP_UART_ERR_NO_DATA,
     BSP_UART_ERR_TIMEOUT,
 } bsp_uart_status_t;
 
@@ -31,7 +32,11 @@ typedef struct
 } bsp_uart_config_t;
 
 bsp_uart_status_t bsp_uart_init(const bsp_uart_config_t *config);
+bsp_uart_status_t bsp_uart_enable_rx_interrupt(bsp_uart_instance_t instance);
+bsp_uart_status_t bsp_uart_read_byte(bsp_uart_instance_t instance, uint8_t *byte);
 bsp_uart_status_t bsp_uart_write_byte(bsp_uart_instance_t instance, uint8_t byte);
 bsp_uart_status_t bsp_uart_write_string(bsp_uart_instance_t instance, const char *message);
+bool bsp_uart_rx_overflowed(bsp_uart_instance_t instance);
+void bsp_uart_clear_rx_overflow(bsp_uart_instance_t instance);
 
 #endif

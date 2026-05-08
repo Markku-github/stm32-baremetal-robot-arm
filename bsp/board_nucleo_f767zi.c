@@ -71,7 +71,32 @@ bsp_uart_status_t board_nucleo_f767zi_init_debug_uart(void)
     return bsp_uart_init(&config);
 }
 
+bsp_uart_status_t board_nucleo_f767zi_enable_debug_uart_rx_interrupt(void)
+{
+    return bsp_uart_enable_rx_interrupt(BOARD_NUCLEO_F767ZI_DEBUG_UART_INSTANCE);
+}
+
+bsp_uart_status_t board_nucleo_f767zi_read_debug_byte(uint8_t *byte)
+{
+    return bsp_uart_read_byte(BOARD_NUCLEO_F767ZI_DEBUG_UART_INSTANCE, byte);
+}
+
+bsp_uart_status_t board_nucleo_f767zi_write_debug_byte(uint8_t byte)
+{
+    return bsp_uart_write_byte(BOARD_NUCLEO_F767ZI_DEBUG_UART_INSTANCE, byte);
+}
+
 void board_nucleo_f767zi_write_debug_string(const char *message)
 {
     (void)bsp_uart_write_string(BOARD_NUCLEO_F767ZI_DEBUG_UART_INSTANCE, message);
+}
+
+bool board_nucleo_f767zi_debug_uart_overflowed(void)
+{
+    return bsp_uart_rx_overflowed(BOARD_NUCLEO_F767ZI_DEBUG_UART_INSTANCE);
+}
+
+void board_nucleo_f767zi_clear_debug_uart_overflow(void)
+{
+    bsp_uart_clear_rx_overflow(BOARD_NUCLEO_F767ZI_DEBUG_UART_INSTANCE);
 }
