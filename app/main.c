@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "board_nucleo_f767zi.h"
+#include "pca9685.h"
 
 #define MAIN_LOOP_DELAY_CYCLES 20000U
 #define MAIN_LED_TOGGLE_TICKS 100U
@@ -24,6 +25,47 @@ static void boot_delay(volatile uint32_t cycles)
     {
         cycles--;
     }
+}
+
+static void write_hex_nibble(uint8_t nibble)
+{
+    const uint8_t character = (nibble < 10U) ? (uint8_t)('0' + nibble) : (uint8_t)('A' + (nibble - 10U));
+
+    (void)board_nucleo_f767zi_write_debug_byte(character);
+}
+
+static void write_hex_byte(uint8_t value)
+{
+    write_hex_nibble((uint8_t)(value >> 4U));
+    write_hex_nibble((uint8_t)(value & 0x0FU));
+}
+
+static void run_pca9685_smoke_test(bool debug_uart_ready)
+{
+    uint8_t mode1_value;
+
+    if (!debug_uart_ready)
+    {
+        return;
+    }
+
+    if (board_nucleo_f767zi_init_pca9685_i2c() != BSP_I2C_OK)
+    {
+        board_nucleo_f767zi_write_debug_string("I2C1 init failed for PCA9685 smoke test.\r\n");
+        return;
+    }
+
+    board_nucleo_f767zi_write_debug_string("I2C1 ready. Probing PCA9685 MODE1 register at 0x40...\r\n");
+
+    if (pca9685_probe(BSP_I2C_INSTANCE_I2C1, PCA9685_I2C_ADDRESS_DEFAULT, &mode1_value) != PCA9685_OK)
+    {
+        board_nucleo_f767zi_write_debug_string("PCA9685 probe failed. Check address, pull-ups, and wiring.\r\n");
+        return;
+    }
+
+    board_nucleo_f767zi_write_debug_string("PCA9685 MODE1 = 0x");
+    write_hex_byte(mode1_value);
+    board_nucleo_f767zi_write_debug_string("\r\n");
 }
 
 /**
@@ -117,6 +159,7 @@ int main(void)
     if (debug_uart_ready)
     {
         board_nucleo_f767zi_write_debug_string("Booting...\r\n");
+        run_pca9685_smoke_test(debug_uart_ready);
 
         if (debug_uart_rx_ready)
         {

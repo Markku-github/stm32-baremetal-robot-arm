@@ -11,6 +11,7 @@
 #include <stdbool.h>
 
 #include "bsp_gpio.h"
+#include "bsp_i2c.h"
 #include "bsp_uart.h"
 
 /**
@@ -40,6 +41,14 @@ void board_nucleo_f767zi_toggle_debug_led(void);
  * @retval BSP_UART_ERR_UNSUPPORTED_INSTANCE: requested UART instance unsupported
  */
 bsp_uart_status_t board_nucleo_f767zi_init_debug_uart(void);
+
+/**
+ * @brief  Initialize the board I2C bus used for PCA9685 communication tests
+ * @retval BSP_I2C_OK: I2C bus initialized successfully
+ * @retval BSP_I2C_ERR_INVALID_ARGUMENT: GPIO or timing configuration invalid
+ * @retval BSP_I2C_ERR_UNSUPPORTED_INSTANCE: requested I2C instance unsupported
+ */
+bsp_i2c_status_t board_nucleo_f767zi_init_pca9685_i2c(void);
 
 /**
  * @brief  Enable the USART6 receive interrupt for the board debug UART

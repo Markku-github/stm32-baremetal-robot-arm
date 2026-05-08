@@ -64,10 +64,26 @@ typedef struct
     volatile uint32_t TDR;
 } stm32_usart_registers_t;
 
+typedef struct
+{
+    volatile uint32_t CR1;
+    volatile uint32_t CR2;
+    volatile uint32_t OAR1;
+    volatile uint32_t OAR2;
+    volatile uint32_t TIMINGR;
+    volatile uint32_t TIMEOUTR;
+    volatile uint32_t ISR;
+    volatile uint32_t ICR;
+    volatile uint32_t PECR;
+    volatile uint32_t RXDR;
+    volatile uint32_t TXDR;
+} stm32_i2c_registers_t;
+
 #define RCC_BASE_ADDRESS 0x40023800UL
 #define FLASH_BASE_ADDRESS 0x40023C00UL
 #define GPIOA_BASE_ADDRESS 0x40020000UL
 #define GPIO_PORT_STRIDE 0x00000400UL
+#define I2C1_BASE_ADDRESS 0x40005400UL
 #define USART2_BASE_ADDRESS 0x40004400UL
 #define USART6_BASE_ADDRESS 0x40011400UL
 #define NVIC_ISER_BASE_ADDRESS 0xE000E100UL
@@ -76,6 +92,7 @@ typedef struct
 
 #define RCC ((stm32_rcc_registers_t *)RCC_BASE_ADDRESS)
 #define FLASH ((stm32_flash_registers_t *)FLASH_BASE_ADDRESS)
+#define I2C1 ((stm32_i2c_registers_t *)I2C1_BASE_ADDRESS)
 #define USART2 ((stm32_usart_registers_t *)USART2_BASE_ADDRESS)
 #define USART6 ((stm32_usart_registers_t *)USART6_BASE_ADDRESS)
 
@@ -91,8 +108,38 @@ typedef struct
 
 #define RCC_CFGR_SW_MASK (0x3UL << 0)
 #define RCC_AHB1ENR_GPIO_PORT_ENABLE(port_index) (1UL << (port_index))
+#define RCC_APB1ENR_I2C1EN (1UL << 21)
 #define RCC_APB1ENR_USART2EN (1UL << 17)
 #define RCC_APB2ENR_USART6EN (1UL << 5)
+
+#define I2C_CR1_PE (1UL << 0)
+
+#define I2C_CR2_SADD_MASK 0x3FFUL
+#define I2C_CR2_RD_WRN (1UL << 10)
+#define I2C_CR2_START (1UL << 13)
+#define I2C_CR2_STOP (1UL << 14)
+#define I2C_CR2_NBYTES_SHIFT 16U
+#define I2C_CR2_NBYTES_MASK (0xFFUL << I2C_CR2_NBYTES_SHIFT)
+#define I2C_CR2_AUTOEND (1UL << 25)
+
+#define I2C_ISR_TXIS (1UL << 1)
+#define I2C_ISR_RXNE (1UL << 2)
+#define I2C_ISR_NACKF (1UL << 4)
+#define I2C_ISR_STOPF (1UL << 5)
+#define I2C_ISR_TC (1UL << 6)
+#define I2C_ISR_BERR (1UL << 8)
+#define I2C_ISR_ARLO (1UL << 9)
+#define I2C_ISR_OVR (1UL << 10)
+#define I2C_ISR_TIMEOUT (1UL << 12)
+#define I2C_ISR_BUSY (1UL << 15)
+
+#define I2C_ICR_ADDRCF (1UL << 3)
+#define I2C_ICR_NACKCF (1UL << 4)
+#define I2C_ICR_STOPCF (1UL << 5)
+#define I2C_ICR_BERRCF (1UL << 8)
+#define I2C_ICR_ARLOCF (1UL << 9)
+#define I2C_ICR_OVRCF (1UL << 10)
+#define I2C_ICR_TIMOUTCF (1UL << 12)
 
 #define USART_ISR_RXNE (1UL << 5)
 #define USART_ISR_TXE (1UL << 7)

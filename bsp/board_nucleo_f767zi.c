@@ -20,6 +20,14 @@
 #define BOARD_NUCLEO_F767ZI_DEBUG_UART_AF 8U
 #define BOARD_NUCLEO_F767ZI_DEBUG_UART_BAUD_RATE 115200U
 
+#define BOARD_NUCLEO_F767ZI_PCA9685_I2C_INSTANCE BSP_I2C_INSTANCE_I2C1
+#define BOARD_NUCLEO_F767ZI_PCA9685_I2C_SCL_PORT BSP_GPIO_PORT_B
+#define BOARD_NUCLEO_F767ZI_PCA9685_I2C_SCL_PIN 8U
+#define BOARD_NUCLEO_F767ZI_PCA9685_I2C_SDA_PORT BSP_GPIO_PORT_B
+#define BOARD_NUCLEO_F767ZI_PCA9685_I2C_SDA_PIN 9U
+#define BOARD_NUCLEO_F767ZI_PCA9685_I2C_AF 4U
+#define BOARD_NUCLEO_F767ZI_PCA9685_I2C_TIMING_16MHZ_100KHZ 0x0020098EU
+
 bsp_gpio_status_t board_nucleo_f767zi_init(void)
 {
     const bsp_gpio_output_config_t debug_led_config = {
@@ -76,6 +84,32 @@ bsp_uart_status_t board_nucleo_f767zi_init_debug_uart(void)
     };
 
     return bsp_uart_init(&config);
+}
+
+bsp_i2c_status_t board_nucleo_f767zi_init_pca9685_i2c(void)
+{
+    const bsp_i2c_config_t config = {
+        .instance = BOARD_NUCLEO_F767ZI_PCA9685_I2C_INSTANCE,
+        .timing = BOARD_NUCLEO_F767ZI_PCA9685_I2C_TIMING_16MHZ_100KHZ,
+        .scl_pin = {
+            .port = BOARD_NUCLEO_F767ZI_PCA9685_I2C_SCL_PORT,
+            .pin = BOARD_NUCLEO_F767ZI_PCA9685_I2C_SCL_PIN,
+            .alternate_function = BOARD_NUCLEO_F767ZI_PCA9685_I2C_AF,
+            .output_type = BSP_GPIO_OUTPUT_OPEN_DRAIN,
+            .pull = BSP_GPIO_PULL_UP,
+            .speed = BSP_GPIO_SPEED_HIGH,
+        },
+        .sda_pin = {
+            .port = BOARD_NUCLEO_F767ZI_PCA9685_I2C_SDA_PORT,
+            .pin = BOARD_NUCLEO_F767ZI_PCA9685_I2C_SDA_PIN,
+            .alternate_function = BOARD_NUCLEO_F767ZI_PCA9685_I2C_AF,
+            .output_type = BSP_GPIO_OUTPUT_OPEN_DRAIN,
+            .pull = BSP_GPIO_PULL_UP,
+            .speed = BSP_GPIO_SPEED_HIGH,
+        },
+    };
+
+    return bsp_i2c_init(&config);
 }
 
 bsp_uart_status_t board_nucleo_f767zi_enable_debug_uart_rx_interrupt(void)

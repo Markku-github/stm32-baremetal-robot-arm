@@ -16,8 +16,10 @@ add_executable(${FIRMWARE_TARGET}
     app/main.c
     bsp/board_nucleo_f767zi.c
     bsp/bsp_gpio.c
+    bsp/bsp_i2c.c
     bsp/bsp_uart.c
     core/startup.c
+    drivers/pca9685/pca9685.c
     core/system_stm32f7xx.c
 )
 
