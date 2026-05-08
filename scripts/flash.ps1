@@ -13,18 +13,38 @@ param(
 )
 
 function Resolve-ProgrammerCliPath {
+    if ($env:STM32_PROGRAMMER_CLI) {
+        if (Test-Path $env:STM32_PROGRAMMER_CLI) {
+            return (Resolve-Path $env:STM32_PROGRAMMER_CLI).Path
+        }
+
+        throw "STM32_PROGRAMMER_CLI points to a missing file: '$env:STM32_PROGRAMMER_CLI'"
+    }
+
     $command = Get-Command STM32_Programmer_CLI.exe -ErrorAction SilentlyContinue
     if ($command) {
         return $command.Source
     }
 
-    $searchRoots = @(
-        'C:\ST',
-        'C:\Program Files\STMicroelectronics',
-        'C:\Program Files (x86)\STMicroelectronics'
+    $registryPatterns = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
     )
 
-    foreach ($root in $searchRoots) {
+    $installRoots = New-Object System.Collections.Generic.List[string]
+
+    foreach ($pattern in $registryPatterns) {
+        $entries = Get-ItemProperty $pattern -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -match 'STM32CubeProgrammer|STM32CubeIDE' }
+
+        foreach ($entry in $entries) {
+            if (-not [string]::IsNullOrWhiteSpace($entry.InstallLocation)) {
+                $installRoots.Add($entry.InstallLocation.Trim('"'))
+            }
+        }
+    }
+
+    foreach ($root in $installRoots | Select-Object -Unique) {
         if (-not (Test-Path $root)) {
             continue
         }
