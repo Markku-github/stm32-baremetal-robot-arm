@@ -6,13 +6,23 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
-message(STATUS "Configuring bootstrap compile target. Add startup code, linker script, and MCU-specific sources during V0.")
+message(STATUS "Configuring V0 firmware baseline with freestanding startup and linker support.")
 
-add_library(robot_arm_bootstrap OBJECT
+set(FIRMWARE_TARGET robot_arm_bootstrap)
+set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/core/linker_script.ld)
+set(MAP_FILE ${CMAKE_CURRENT_BINARY_DIR}/${FIRMWARE_TARGET}.map)
+
+add_executable(${FIRMWARE_TARGET}
     app/main.c
+    core/startup.c
+    core/system_stm32f7xx.c
 )
 
-target_include_directories(robot_arm_bootstrap PRIVATE
+set_target_properties(${FIRMWARE_TARGET} PROPERTIES
+    SUFFIX .elf
+)
+
+target_include_directories(${FIRMWARE_TARGET} PRIVATE
     app
     bsp
     comms
@@ -22,13 +32,14 @@ target_include_directories(robot_arm_bootstrap PRIVATE
     robot
 )
 
-target_compile_definitions(robot_arm_bootstrap PRIVATE
+target_compile_definitions(${FIRMWARE_TARGET} PRIVATE
     STM32F767xx
 )
 
-target_compile_options(robot_arm_bootstrap PRIVATE
+target_compile_options(${FIRMWARE_TARGET} PRIVATE
     -mcpu=cortex-m7
     -mthumb
+    -ffreestanding
     -ffunction-sections
     -fdata-sections
     -fno-common
@@ -36,3 +47,21 @@ target_compile_options(robot_arm_bootstrap PRIVATE
     -Wextra
     -Wpedantic
 )
+
+target_link_options(${FIRMWARE_TARGET} PRIVATE
+    -mcpu=cortex-m7
+    -mthumb
+    -nostdlib
+    -Wl,--gc-sections
+    -Wl,--build-id=none
+    -Wl,-Map=${MAP_FILE}
+    -T${LINKER_SCRIPT}
+    -lgcc
+)
+
+if(CMAKE_SIZE)
+    add_custom_command(TARGET ${FIRMWARE_TARGET} POST_BUILD
+        COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${FIRMWARE_TARGET}>
+        COMMENT "Printing firmware size"
+    )
+endif()
