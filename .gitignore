@@ -2,6 +2,7 @@
 /out/
 /dist/
 /.cache/
+/local_notes/
 /.vs/
 /.vscode/
 *.code-workspace
