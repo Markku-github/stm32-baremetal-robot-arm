@@ -55,7 +55,18 @@ typedef struct
     bsp_gpio_speed_t speed;
 } bsp_gpio_output_config_t;
 
+typedef struct
+{
+    bsp_gpio_port_t port;
+    uint8_t pin;
+    uint8_t alternate_function;
+    bsp_gpio_output_type_t output_type;
+    bsp_gpio_pull_t pull;
+    bsp_gpio_speed_t speed;
+} bsp_gpio_alternate_function_config_t;
+
 bsp_gpio_status_t bsp_gpio_init_output(const bsp_gpio_output_config_t *config);
+bsp_gpio_status_t bsp_gpio_init_alternate_function(const bsp_gpio_alternate_function_config_t *config);
 bsp_gpio_status_t bsp_gpio_write_pin(bsp_gpio_port_t port, uint8_t pin, bool level);
 bsp_gpio_status_t bsp_gpio_toggle_pin(bsp_gpio_port_t port, uint8_t pin);
 

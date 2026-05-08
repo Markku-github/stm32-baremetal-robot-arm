@@ -17,6 +17,11 @@ static uint32_t bsp_gpio_two_bit_shift(uint8_t pin)
     return (uint32_t)pin * 2U;
 }
 
+static uint32_t bsp_gpio_alternate_function_shift(uint8_t pin)
+{
+    return ((uint32_t)pin & 0x7UL) * 4U;
+}
+
 bsp_gpio_status_t bsp_gpio_init_output(const bsp_gpio_output_config_t *config)
 {
     uint32_t shift;
@@ -42,6 +47,42 @@ bsp_gpio_status_t bsp_gpio_init_output(const bsp_gpio_output_config_t *config)
 
     gpio->PUPDR &= ~(0x3UL << shift);
     gpio->PUPDR |= ((uint32_t)config->pull << shift);
+
+    return BSP_GPIO_OK;
+}
+
+bsp_gpio_status_t bsp_gpio_init_alternate_function(const bsp_gpio_alternate_function_config_t *config)
+{
+    uint32_t shift;
+    uint32_t af_index;
+    uint32_t af_shift;
+    stm32_gpio_registers_t *gpio;
+
+    if ((config == 0) || !bsp_gpio_is_valid_port(config->port) || !bsp_gpio_is_valid_pin(config->pin) || (config->alternate_function > 15U))
+    {
+        return BSP_GPIO_ERR_INVALID_ARGUMENT;
+    }
+
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIO_PORT_ENABLE((uint32_t)config->port);
+    gpio = stm32_gpio_port((uint32_t)config->port);
+    shift = bsp_gpio_two_bit_shift(config->pin);
+    af_index = (uint32_t)config->pin / 8U;
+    af_shift = bsp_gpio_alternate_function_shift(config->pin);
+
+    gpio->MODER &= ~(0x3UL << shift);
+    gpio->MODER |= (0x2UL << shift);
+
+    gpio->OTYPER &= ~(0x1UL << config->pin);
+    gpio->OTYPER |= ((uint32_t)config->output_type << config->pin);
+
+    gpio->OSPEEDR &= ~(0x3UL << shift);
+    gpio->OSPEEDR |= ((uint32_t)config->speed << shift);
+
+    gpio->PUPDR &= ~(0x3UL << shift);
+    gpio->PUPDR |= ((uint32_t)config->pull << shift);
+
+    gpio->AFR[af_index] &= ~(0xFUL << af_shift);
+    gpio->AFR[af_index] |= ((uint32_t)config->alternate_function << af_shift);
 
     return BSP_GPIO_OK;
 }
