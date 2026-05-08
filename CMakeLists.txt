@@ -14,6 +14,7 @@ set(MAP_FILE ${CMAKE_CURRENT_BINARY_DIR}/${FIRMWARE_TARGET}.map)
 
 add_executable(${FIRMWARE_TARGET}
     app/main.c
+    bsp/board_nucleo_f767zi.c
     bsp/bsp_gpio.c
     core/startup.c
     core/system_stm32f7xx.c
