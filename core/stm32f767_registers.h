@@ -44,13 +44,17 @@ typedef struct
 
 typedef struct
 {
-    volatile uint32_t SR;
-    volatile uint32_t DR;
-    volatile uint32_t BRR;
     volatile uint32_t CR1;
     volatile uint32_t CR2;
     volatile uint32_t CR3;
+    volatile uint32_t BRR;
     volatile uint32_t GTPR;
+    volatile uint32_t RTOR;
+    volatile uint32_t RQR;
+    volatile uint32_t ISR;
+    volatile uint32_t ICR;
+    volatile uint32_t RDR;
+    volatile uint32_t TDR;
 } stm32_usart_registers_t;
 
 #define RCC_BASE_ADDRESS 0x40023800UL
@@ -81,10 +85,9 @@ typedef struct
 #define RCC_APB1ENR_USART2EN (1UL << 17)
 #define RCC_APB2ENR_USART6EN (1UL << 5)
 
-#define USART_SR_TXE (1UL << 7)
-#define USART_SR_TC (1UL << 6)
+#define USART_ISR_TXE (1UL << 7)
 
-#define USART_CR1_UE (1UL << 13)
+#define USART_CR1_UE (1UL << 0)
 #define USART_CR1_TE (1UL << 3)
 #define USART_CR1_RE (1UL << 2)
 

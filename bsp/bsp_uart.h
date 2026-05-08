@@ -11,6 +11,7 @@ typedef enum
     BSP_UART_OK = 0,
     BSP_UART_ERR_INVALID_ARGUMENT,
     BSP_UART_ERR_UNSUPPORTED_INSTANCE,
+    BSP_UART_ERR_TIMEOUT,
 } bsp_uart_status_t;
 
 typedef enum

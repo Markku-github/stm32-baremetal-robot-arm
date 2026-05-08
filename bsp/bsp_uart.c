@@ -2,6 +2,19 @@
 
 #include "stm32f767_registers.h"
 
+#define BSP_UART_POLL_TIMEOUT_CYCLES 1000000U
+
+static void bsp_uart_startup_delay(void)
+{
+    /* Give the UART a short post-enable settle time observed on hardware bring-up. */
+    volatile uint32_t cycles = 10000U;
+
+    while (cycles > 0U)
+    {
+        cycles--;
+    }
+}
+
 static bool bsp_uart_is_supported_instance(bsp_uart_instance_t instance)
 {
     return (instance == BSP_UART_INSTANCE_USART2) || (instance == BSP_UART_INSTANCE_USART6);
@@ -82,27 +95,32 @@ bsp_uart_status_t bsp_uart_init(const bsp_uart_config_t *config)
         usart->CR1 |= USART_CR1_RE;
     }
 
+    bsp_uart_startup_delay();
+
     return BSP_UART_OK;
 }
 
 bsp_uart_status_t bsp_uart_write_byte(bsp_uart_instance_t instance, uint8_t byte)
 {
     stm32_usart_registers_t *usart = bsp_uart_registers(instance);
+    uint32_t timeout = BSP_UART_POLL_TIMEOUT_CYCLES;
 
     if (usart == 0)
     {
         return BSP_UART_ERR_UNSUPPORTED_INSTANCE;
     }
 
-    while ((usart->SR & USART_SR_TXE) == 0U)
+    while ((usart->ISR & USART_ISR_TXE) == 0U)
     {
+        if (timeout == 0U)
+        {
+            return BSP_UART_ERR_TIMEOUT;
+        }
+
+        timeout--;
     }
 
-    usart->DR = byte;
-
-    while ((usart->SR & USART_SR_TC) == 0U)
-    {
-    }
+    usart->TDR = byte;
 
     return BSP_UART_OK;
 }
