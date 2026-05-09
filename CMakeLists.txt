@@ -21,6 +21,7 @@ add_executable(${FIRMWARE_TARGET}
     core/startup.c
     drivers/pca9685/pca9685.c
     drivers/servo/servo.c
+    robot/robot_arm.c
     core/system_stm32f7xx.c
 )
 
