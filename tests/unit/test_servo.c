@@ -150,6 +150,96 @@ static bool test_servo_set_angle_updates_runtime_and_uses_pca9685(void)
     return true;
 }
 
+static bool test_servo_init_rejects_invalid_configuration(void)
+{
+    servo_t servo;
+    servo_config_t invalid_config = test_config;
+
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_init(0, &test_config, &test_device));
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_init(&servo, 0, &test_device));
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_init(&servo, &test_config, 0));
+
+    invalid_config.channel = PCA9685_CHANNEL_COUNT;
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_init(&servo, &invalid_config, &test_device));
+
+    invalid_config = test_config;
+    invalid_config.minimum_angle_rad = invalid_config.maximum_angle_rad;
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_init(&servo, &invalid_config, &test_device));
+
+    invalid_config = test_config;
+    invalid_config.minimum_pulse_width_us = invalid_config.maximum_pulse_width_us;
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_init(&servo, &invalid_config, &test_device));
+    return true;
+}
+
+static bool test_servo_angle_to_pulse_applies_offset_and_post_offset_clamp(void)
+{
+    servo_t servo;
+    servo_config_t offset_config = test_config;
+    uint16_t pulse_width_us;
+
+    offset_config.offset_rad = SERVO_TEST_DEG_TO_RAD(10.0f);
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_init(&servo, &offset_config, &test_device));
+
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_angle_rad_to_pulse_us(&servo, 0.0f, &pulse_width_us));
+    TEST_ASSERT_UINT16_EQUAL(1611U, pulse_width_us);
+
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_angle_rad_to_pulse_us(&servo, SERVO_TEST_DEG_TO_RAD(40.0f), &pulse_width_us));
+    TEST_ASSERT_UINT16_EQUAL(2000U, pulse_width_us);
+    return true;
+}
+
+static bool test_servo_set_angle_clamps_requested_angle_before_updating_state(void)
+{
+    servo_t servo;
+    pca9685_fake_state_t *fake_state;
+
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_init(&servo, &test_config, &test_device));
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_set_angle_immediate_deg(&servo, 90.0f));
+    TEST_ASSERT_UINT32_EQUAL(1U, fake_state->call_count);
+    TEST_ASSERT_UINT16_EQUAL(2000U, fake_state->last_pulse_width_us);
+    TEST_ASSERT_FLOAT_CLOSE(SERVO_TEST_DEG_TO_RAD(45.0f), servo.current_angle_rad);
+    TEST_ASSERT_FLOAT_CLOSE(SERVO_TEST_DEG_TO_RAD(45.0f), servo.target_angle_rad);
+    return true;
+}
+
+static bool test_servo_set_angle_reports_pca9685_failure_without_mutating_runtime_state(void)
+{
+    servo_t servo;
+    pca9685_fake_state_t *fake_state;
+
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_init(&servo, &test_config, &test_device));
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+    fake_state->next_status = PCA9685_ERR_I2C;
+
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_PCA9685, servo_set_angle_immediate_rad(&servo, SERVO_TEST_DEG_TO_RAD(15.0f)));
+    TEST_ASSERT_UINT32_EQUAL(1U, fake_state->call_count);
+    TEST_ASSERT_FLOAT_CLOSE(0.0f, servo.current_angle_rad);
+    TEST_ASSERT_FLOAT_CLOSE(0.0f, servo.target_angle_rad);
+    return true;
+}
+
+static bool test_servo_functions_reject_invalid_runtime_arguments(void)
+{
+    servo_t servo;
+    float clamped_angle_rad;
+    uint16_t pulse_width_us;
+
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_init(&servo, &test_config, &test_device));
+
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_clamp_angle_rad(0, 0.0f, &clamped_angle_rad));
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_clamp_angle_rad(&servo, 0.0f, 0));
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_angle_rad_to_pulse_us(0, 0.0f, &pulse_width_us));
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_angle_rad_to_pulse_us(&servo, 0.0f, 0));
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_set_angle_immediate_rad(0, 0.0f));
+    TEST_ASSERT_INT_EQUAL(SERVO_ERR_INVALID_ARGUMENT, servo_set_angle_immediate_deg(0, 0.0f));
+    return true;
+}
+
 int main(void)
 {
     const struct
@@ -158,9 +248,14 @@ int main(void)
         bool (*function)(void);
     } tests[] = {
         { "servo_init_centers_runtime_state", test_servo_init_centers_runtime_state },
+        { "servo_init_rejects_invalid_configuration", test_servo_init_rejects_invalid_configuration },
         { "servo_clamp_angle_respects_limits", test_servo_clamp_angle_respects_limits },
         { "servo_angle_to_pulse_maps_midpoint_and_limits", test_servo_angle_to_pulse_maps_midpoint_and_limits },
+        { "servo_angle_to_pulse_applies_offset_and_post_offset_clamp", test_servo_angle_to_pulse_applies_offset_and_post_offset_clamp },
         { "servo_set_angle_updates_runtime_and_uses_pca9685", test_servo_set_angle_updates_runtime_and_uses_pca9685 },
+        { "servo_set_angle_clamps_requested_angle_before_updating_state", test_servo_set_angle_clamps_requested_angle_before_updating_state },
+        { "servo_set_angle_reports_pca9685_failure_without_mutating_runtime_state", test_servo_set_angle_reports_pca9685_failure_without_mutating_runtime_state },
+        { "servo_functions_reject_invalid_runtime_arguments", test_servo_functions_reject_invalid_runtime_arguments },
     };
     unsigned int test_index;
     unsigned int failed_count = 0U;
