@@ -14,6 +14,7 @@
 #define PCA9685_MODE1_SLEEP 0x10U
 #define PCA9685_MODE2_OUTDRV 0x04U
 #define PCA9685_CHANNEL_REGISTER_STRIDE 4U
+#define PCA9685_FULL_OFF_BIT 0x10U
 #define PCA9685_WAKE_DELAY_CYCLES 20000U
 
 static void pca9685_delay_cycles(volatile uint32_t cycles)
@@ -54,6 +55,43 @@ static uint8_t pca9685_channel_register_base(uint8_t channel)
     return (uint8_t)(PCA9685_REGISTER_LED0_ON_L + (channel * PCA9685_CHANNEL_REGISTER_STRIDE));
 }
 
+static pca9685_status_t pca9685_write_channel_registers(
+    bsp_i2c_instance_t instance,
+    uint8_t address,
+    uint8_t register_base,
+    uint16_t on_count,
+    uint16_t off_count,
+    bool full_off)
+{
+    uint8_t off_high_byte = (uint8_t)((off_count >> 8U) & 0x0FU);
+    pca9685_status_t status;
+
+    if (full_off)
+    {
+        off_high_byte |= PCA9685_FULL_OFF_BIT;
+    }
+
+    status = pca9685_write_register(instance, address, register_base, (uint8_t)(on_count & 0x00FFU));
+    if (status != PCA9685_OK)
+    {
+        return status;
+    }
+
+    status = pca9685_write_register(instance, address, (uint8_t)(register_base + 1U), (uint8_t)((on_count >> 8U) & 0x0FU));
+    if (status != PCA9685_OK)
+    {
+        return status;
+    }
+
+    status = pca9685_write_register(instance, address, (uint8_t)(register_base + 2U), (uint8_t)(off_count & 0x00FFU));
+    if (status != PCA9685_OK)
+    {
+        return status;
+    }
+
+    return pca9685_write_register(instance, address, (uint8_t)(register_base + 3U), off_high_byte);
+}
+
 pca9685_status_t pca9685_init(
     pca9685_device_t *device,
     bsp_i2c_instance_t instance,
@@ -84,11 +122,18 @@ pca9685_status_t pca9685_init(
         return status;
     }
 
-    return pca9685_write_register(
+    status = pca9685_write_register(
         instance,
         address,
         PCA9685_REGISTER_MODE1,
         (uint8_t)(mode1_value | PCA9685_MODE1_AI));
+
+    if (status != PCA9685_OK)
+    {
+        return status;
+    }
+
+    return pca9685_disable_all_outputs(device);
 }
 
 pca9685_status_t pca9685_set_pwm_frequency(pca9685_device_t *device, uint16_t pwm_frequency_hz)
@@ -169,7 +214,6 @@ pca9685_status_t pca9685_set_channel_pwm(
     uint16_t off_count)
 {
     uint8_t register_base;
-    pca9685_status_t status;
 
     if (!pca9685_is_valid_device(device)
         || (channel >= PCA9685_CHANNEL_COUNT)
@@ -181,29 +225,41 @@ pca9685_status_t pca9685_set_channel_pwm(
 
     register_base = pca9685_channel_register_base(channel);
 
-    status = pca9685_write_register(device->instance, device->address, register_base, (uint8_t)(on_count & 0x00FFU));
-    if (status != PCA9685_OK)
-    {
-        return status;
-    }
-
-    status = pca9685_write_register(device->instance, device->address, (uint8_t)(register_base + 1U), (uint8_t)(on_count >> 8U));
-    if (status != PCA9685_OK)
-    {
-        return status;
-    }
-
-    status = pca9685_write_register(device->instance, device->address, (uint8_t)(register_base + 2U), (uint8_t)(off_count & 0x00FFU));
-    if (status != PCA9685_OK)
-    {
-        return status;
-    }
-
-    return pca9685_write_register(
+    return pca9685_write_channel_registers(
         device->instance,
         device->address,
-        (uint8_t)(register_base + 3U),
-        (uint8_t)(off_count >> 8U));
+        register_base,
+        on_count,
+        off_count,
+        false);
+}
+
+pca9685_status_t pca9685_disable_all_outputs(const pca9685_device_t *device)
+{
+    uint8_t channel;
+
+    if (!pca9685_is_valid_device(device))
+    {
+        return PCA9685_ERR_INVALID_ARGUMENT;
+    }
+
+    for (channel = 0U; channel < PCA9685_CHANNEL_COUNT; channel++)
+    {
+        const pca9685_status_t status = pca9685_write_channel_registers(
+            device->instance,
+            device->address,
+            pca9685_channel_register_base(channel),
+            0U,
+            0U,
+            true);
+
+        if (status != PCA9685_OK)
+        {
+            return status;
+        }
+    }
+
+    return PCA9685_OK;
 }
 
 pca9685_status_t pca9685_set_channel_pulse_us(

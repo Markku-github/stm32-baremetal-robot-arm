@@ -96,6 +96,15 @@ pca9685_status_t pca9685_set_channel_pulse_us(
     uint16_t pulse_width_us);
 
 /**
+ * @brief  Force all PCA9685 outputs into a disabled full-off state
+ * @param  device: initialized PCA9685 device descriptor
+ * @retval PCA9685_OK: all output channels were disabled successfully
+ * @retval PCA9685_ERR_INVALID_ARGUMENT: device descriptor invalid
+ * @retval PCA9685_ERR_I2C: underlying I2C transaction failed
+ */
+pca9685_status_t pca9685_disable_all_outputs(const pca9685_device_t *device);
+
+/**
  * @brief  Write one PCA9685 register through the BSP I2C layer
  * @param  instance: I2C instance connected to the PCA9685 device
  * @param  address: 7-bit PCA9685 slave address

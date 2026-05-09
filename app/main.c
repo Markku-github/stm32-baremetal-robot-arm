@@ -140,7 +140,13 @@ static void run_pca9685_smoke_test(bool debug_uart_ready)
         return;
     }
 
-    board_nucleo_f767zi_write_debug_string("PCA9685 driver self-test OK. External servo power is not required for this register-level check.\r\n");
+    if (pca9685_disable_all_outputs(&device) != PCA9685_OK)
+    {
+        board_nucleo_f767zi_write_debug_string("PCA9685 output disable failed after self-test.\r\n");
+        return;
+    }
+
+    board_nucleo_f767zi_write_debug_string("PCA9685 driver self-test OK. Outputs returned to the disabled state. External servo power is not required for this register-level check.\r\n");
 }
 
 /**
