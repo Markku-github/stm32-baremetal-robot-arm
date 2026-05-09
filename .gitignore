@@ -1,4 +1,6 @@
 /build/
+/Testing/
+/test_results/
 /out/
 /dist/
 /.cache/
