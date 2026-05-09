@@ -4,7 +4,7 @@ This repository contains bare-metal firmware for an STM32 Nucleo-F767ZI based co
 
 ## Current implementation status
 
-The implemented V0 baseline currently includes:
+The current firmware baseline currently includes:
 
 - repository scaffold for the planned firmware modules
 - CMake and Ninja build configuration for `arm-none-eabi-gcc`
@@ -15,7 +15,9 @@ The implemented V0 baseline currently includes:
 - USART6 transmit support for the external CH340 adapter
 - interrupt-driven USART6 receive buffering with a simple echo test loop
 - I2C1 bring-up on `PB8`/`PB9` for the PCA9685 bus
-- PCA9685 communication verification through a `MODE1` register smoke test at address `0x40`
+- PCA9685 device initialization and PWM frequency setup on the custom I2C layer
+- PCA9685 raw channel PWM and pulse-width based channel control helpers
+- boot-time PCA9685 register self-test with readback verification and safe output disable
 
 ## Hardware baseline
 

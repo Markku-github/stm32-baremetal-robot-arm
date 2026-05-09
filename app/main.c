@@ -1,7 +1,7 @@
 /**
  ******************************************************************************
  * @file    main.c
- * @brief   V0 application entry point for board bring-up, PCA9685 probing, and USART6 echo testing
+ * @brief   Early application entry point for board bring-up, PCA9685 self-test, and USART6 echo testing
  ******************************************************************************
  */
 
@@ -57,7 +57,7 @@ static uint16_t pca9685_self_test_expected_off_count(uint16_t pwm_frequency_hz, 
     return (uint16_t)pulse_counts;
 }
 
-static void run_pca9685_smoke_test(bool debug_uart_ready)
+static void run_pca9685_self_test(bool debug_uart_ready)
 {
     pca9685_device_t device;
     uint8_t mode1_value;
@@ -78,7 +78,7 @@ static void run_pca9685_smoke_test(bool debug_uart_ready)
 
     if (board_nucleo_f767zi_init_pca9685_i2c() != BSP_I2C_OK)
     {
-        board_nucleo_f767zi_write_debug_string("I2C1 init failed for PCA9685 smoke test.\r\n");
+        board_nucleo_f767zi_write_debug_string("I2C1 init failed for PCA9685 self-test.\r\n");
         return;
     }
 
@@ -220,7 +220,7 @@ static void process_debug_uart_input(bool debug_uart_rx_ready)
 }
 
 /**
- * @brief  Initialize the board, verify PCA9685 communication, and run the V0 UART echo loop
+ * @brief  Initialize the board, run the PCA9685 self-test, and enter the UART echo loop
  * @retval int  This function does not return during normal operation.
  */
 int main(void)
@@ -240,7 +240,7 @@ int main(void)
     if (debug_uart_ready)
     {
         board_nucleo_f767zi_write_debug_string("Booting...\r\n");
-        run_pca9685_smoke_test(debug_uart_ready);
+        run_pca9685_self_test(debug_uart_ready);
 
         if (debug_uart_rx_ready)
         {

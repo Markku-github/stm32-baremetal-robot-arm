@@ -6,7 +6,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
-message(STATUS "Configuring V0 firmware baseline with freestanding startup and linker support.")
+message(STATUS "Configuring bare-metal firmware with PCA9685 driver self-test support.")
 
 set(FIRMWARE_TARGET robot_arm_bootstrap)
 set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/core/linker_script.ld)
