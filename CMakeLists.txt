@@ -25,6 +25,7 @@ else()
 
     add_executable(${FIRMWARE_TARGET}
         app/debug_command_parser.c
+        app/debug_command_shell.c
         app/main.c
         bsp/board_nucleo_f767zi.c
         bsp/bsp_gpio.c

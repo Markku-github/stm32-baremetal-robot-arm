@@ -10,6 +10,7 @@
 
 #include "board_nucleo_f767zi.h"
 #include "debug_command_parser.h"
+#include "debug_command_shell.h"
 #include "pca9685.h"
 #include "robot_arm.h"
 
@@ -20,13 +21,20 @@
 #define PCA9685_SELF_TEST_PULSE_US 1500U
 #define MAIN_DEGREES_TO_RADIANS 0.01745329251994329577f
 #define MAIN_RADIANS_TO_DEGREES 57.2957795130823208768f
-#define MAIN_COMMAND_BUFFER_CAPACITY 64U
 #define ROBOT_DIRECT_POSE_BASE_DEG 0.0f
 #define ROBOT_DIRECT_POSE_SHOULDER_DEG 10.0f
 #define ROBOT_DIRECT_POSE_ELBOW_DEG -10.0f
 #define ROBOT_DIRECT_POSE_WRIST_TILT_DEG 5.0f
 #define ROBOT_DIRECT_POSE_WRIST_ROTATE_DEG -15.0f
 #define ROBOT_DIRECT_POSE_GRIPPER_DEG 10.0f
+
+typedef struct
+{
+    bool robot_ready;
+    robot_arm_t *robot;
+} debug_command_execution_context_t;
+
+static void execute_debug_command(const char *command_line, bool robot_ready, robot_arm_t *robot);
 
 /**
  * @brief  Provide a short busy-wait delay for the cooperative main loop
@@ -82,6 +90,43 @@ static void write_prompt(void)
 {
     board_nucleo_f767zi_write_debug_string("> ");
 }
+
+static void debug_command_shell_write_string(void *context, const char *text)
+{
+    (void)context;
+    board_nucleo_f767zi_write_debug_string(text);
+}
+
+static void debug_command_shell_write_byte(void *context, uint8_t byte)
+{
+    (void)context;
+    (void)board_nucleo_f767zi_write_debug_byte(byte);
+}
+
+static void debug_command_shell_write_prompt(void *context)
+{
+    (void)context;
+    write_prompt();
+}
+
+static void debug_command_shell_execute(void *context, const char *command_line)
+{
+    debug_command_execution_context_t *execution_context = (debug_command_execution_context_t *)context;
+
+    if (execution_context == 0)
+    {
+        return;
+    }
+
+    execute_debug_command(command_line, execution_context->robot_ready, execution_context->robot);
+}
+
+static const debug_command_shell_io_t debug_command_shell_io = {
+    .write_string = debug_command_shell_write_string,
+    .write_byte = debug_command_shell_write_byte,
+    .write_prompt = debug_command_shell_write_prompt,
+    .execute_command = debug_command_shell_execute,
+};
 
 static void write_unsigned_decimal(uint32_t value)
 {
@@ -272,36 +317,6 @@ static void execute_debug_command(const char *command_line, bool robot_ready, ro
 
     board_nucleo_f767zi_write_debug_string("ERR UNKNOWN_COMMAND\r\n");
     write_prompt();
-}
-
-static void finalize_debug_command(
-    char *command_buffer,
-    uint8_t *command_length,
-    bool *command_overflowed,
-    bool robot_ready,
-    robot_arm_t *robot)
-{
-    uint8_t trimmed_length;
-
-    if ((command_buffer == 0) || (command_length == 0) || (command_overflowed == 0))
-    {
-        return;
-    }
-
-    if (*command_overflowed)
-    {
-        board_nucleo_f767zi_write_debug_string("ERR COMMAND_TOO_LONG\r\n");
-        *command_length = 0U;
-        *command_overflowed = false;
-        command_buffer[0] = '\0';
-        write_prompt();
-        return;
-    }
-
-    command_buffer[*command_length] = '\0';
-    trimmed_length = debug_command_parser_trim_line(command_buffer, *command_length);
-    *command_length = 0U;
-    execute_debug_command((trimmed_length > 0U) ? command_buffer : "", robot_ready, robot);
 }
 
 static float robot_pose_joint_angle(const robot_arm_pose_t *pose, robot_arm_joint_id_t joint_id)
@@ -623,25 +638,21 @@ static void run_robot_direct_pose_self_test(bool debug_uart_ready, pca9685_devic
  */
 static void process_debug_uart_input(bool debug_uart_rx_ready, bool robot_ready, robot_arm_t *robot)
 {
-    static char command_buffer[MAIN_COMMAND_BUFFER_CAPACITY];
-    static uint8_t command_length = 0U;
-    static bool command_overflowed = false;
-    static bool previous_byte_was_carriage_return = false;
+    static debug_command_shell_t command_shell;
+    debug_command_execution_context_t execution_context;
 
     if (!debug_uart_rx_ready)
     {
         return;
     }
 
+    execution_context.robot_ready = robot_ready;
+    execution_context.robot = robot_ready ? robot : 0;
+
     if (board_nucleo_f767zi_debug_uart_overflowed())
     {
         board_nucleo_f767zi_clear_debug_uart_overflow();
-        command_length = 0U;
-        command_overflowed = false;
-        command_buffer[0] = '\0';
-        board_nucleo_f767zi_write_debug_string("\r\n[RX overflow]\r\n");
-        write_prompt();
-        previous_byte_was_carriage_return = false;
+        debug_command_shell_handle_transport_overflow(&command_shell, &debug_command_shell_io, &execution_context);
     }
 
     for (;;)
@@ -656,70 +667,11 @@ static void process_debug_uart_input(bool debug_uart_rx_ready, bool robot_ready,
 
         if (status != BSP_UART_OK)
         {
-            command_length = 0U;
-            command_overflowed = false;
-            command_buffer[0] = '\0';
-            board_nucleo_f767zi_write_debug_string("\r\n[RX read error]\r\n");
-            write_prompt();
-            previous_byte_was_carriage_return = false;
+            debug_command_shell_handle_transport_read_error(&command_shell, &debug_command_shell_io, &execution_context);
             return;
         }
 
-        if (received_byte == '\r')
-        {
-            board_nucleo_f767zi_write_debug_string("\r\n");
-            finalize_debug_command(command_buffer, &command_length, &command_overflowed, robot_ready, robot);
-            previous_byte_was_carriage_return = true;
-            continue;
-        }
-
-        if (received_byte == '\n')
-        {
-            if (!previous_byte_was_carriage_return)
-            {
-                board_nucleo_f767zi_write_debug_string("\r\n");
-                finalize_debug_command(command_buffer, &command_length, &command_overflowed, robot_ready, robot);
-            }
-
-            previous_byte_was_carriage_return = false;
-            continue;
-        }
-
-        previous_byte_was_carriage_return = false;
-
-        if ((received_byte == 0x08U) || (received_byte == 0x7FU))
-        {
-            if (!command_overflowed && (command_length > 0U))
-            {
-                command_length--;
-                command_buffer[command_length] = '\0';
-                board_nucleo_f767zi_write_debug_string("\b \b");
-            }
-
-            continue;
-        }
-
-        if ((received_byte < 0x20U) || (received_byte > 0x7EU))
-        {
-            continue;
-        }
-
-        if (command_overflowed)
-        {
-            continue;
-        }
-
-        if (command_length >= (MAIN_COMMAND_BUFFER_CAPACITY - 1U))
-        {
-            command_overflowed = true;
-            continue;
-        }
-
-        command_buffer[command_length] = (char)received_byte;
-        command_length++;
-        command_buffer[command_length] = '\0';
-
-        (void)board_nucleo_f767zi_write_debug_byte(received_byte);
+        debug_command_shell_process_byte(&command_shell, received_byte, &debug_command_shell_io, &execution_context);
     }
 }
 
