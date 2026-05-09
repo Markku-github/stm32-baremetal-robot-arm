@@ -61,7 +61,10 @@ target_link_options(${FIRMWARE_TARGET} PRIVATE
     -Wl,--build-id=none
     -Wl,-Map=${MAP_FILE}
     -T${LINKER_SCRIPT}
-    -lgcc
+)
+
+target_link_libraries(${FIRMWARE_TARGET} PRIVATE
+    gcc
 )
 
 if(CMAKE_SIZE)
