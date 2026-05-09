@@ -22,6 +22,7 @@ The current firmware baseline currently includes:
 - conservative six-servo robot baseline with HOME and direct-pose support
 - boot-time robot HOME and direct-pose integration self-tests with register readback validation
 - UART commands for `HELP`, `HOME`, `POSE`, and `STATUS`
+- host-native automated unit-test harness with CMake/CTest for servo logic
 
 ## Current UART command set
 
@@ -65,6 +66,20 @@ Build:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
+```
+
+Run host-native automated tests:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
+```
+
+The host-test helper expects a Windows-native C compiler in `PATH` and intentionally rejects Cygwin toolchains.
+
+If needed, override the detected Windows host compiler explicitly by compiler name or explicit path:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1 -Compiler gcc.exe
 ```
 
 List ST-LINK probes:
