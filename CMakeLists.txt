@@ -24,6 +24,7 @@ else()
     set(MAP_FILE ${CMAKE_CURRENT_BINARY_DIR}/${FIRMWARE_TARGET}.map)
 
     add_executable(${FIRMWARE_TARGET}
+        app/debug_command_handler.c
         app/debug_command_parser.c
         app/debug_command_shell.c
         app/main.c
