@@ -1,3 +1,14 @@
+<#
+.SYNOPSIS
+Flash the firmware through ST-LINK from a Windows host.
+
+.DESCRIPTION
+This helper is Windows-only as written. It invokes
+STM32_Programmer_CLI.exe directly and resolves that executable from the
+Windows environment, including Windows registry discovery when needed.
+It is not validated for Linux or macOS hosts.
+#>
+
 param(
     [string]$BuildDir = "build/bootstrap",
     [string]$FirmwareName = "robot_arm_bootstrap.elf",
@@ -57,7 +68,7 @@ function Resolve-ProgrammerCliPath {
         }
     }
 
-    throw 'STM32_Programmer_CLI.exe was not found. Install STM32CubeProgrammer or STM32CubeIDE, or add STM32_Programmer_CLI.exe to PATH.'
+    throw 'STM32_Programmer_CLI.exe was not found. Install STM32CubeProgrammer or STM32CubeIDE on Windows, or add STM32_Programmer_CLI.exe to PATH.'
 }
 
 $sourceDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path

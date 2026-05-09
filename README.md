@@ -28,14 +28,21 @@ The current firmware baseline currently includes:
 - application serial adapter: external CH340 USB-UART bridge
 - flashing path: onboard ST-LINK over SWD via `STM32_Programmer_CLI.exe`
 
-## Build requirements
+## Host tooling status
+
+- the helper scripts in `scripts/` are currently Windows PowerShell tools for Windows development hosts
+- `scripts/configure.ps1` and `scripts/build.ps1` use repository-relative paths and do not depend on hardcoded machine-specific absolute paths, but they are only validated in the Windows environment at this time
+- `scripts/flash.ps1` is Windows-only as written because it resolves `STM32_Programmer_CLI.exe` through Windows PATH and registry discovery
+- Linux host tooling parity is not implemented yet; matching Linux CLI helper scripts are planned as a future bonus item
+
+## Windows host requirements
 
 - CMake 3.22 or newer
 - Ninja
 - GNU Arm Embedded Toolchain with `arm-none-eabi-gcc` in `PATH`
 - STM32CubeProgrammer or STM32CubeIDE installed for `STM32_Programmer_CLI.exe`
 
-## Build commands
+## Windows PowerShell commands
 
 Configure:
 

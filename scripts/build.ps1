@@ -1,3 +1,14 @@
+<#
+.SYNOPSIS
+Build the firmware target on a Windows host.
+
+.DESCRIPTION
+This helper is currently intended for Windows PowerShell based development
+environments. It uses repository-relative paths and does not rely on
+hardcoded machine-specific absolute paths, but it is only validated on
+Windows at this time.
+#>
+
 param(
     [string]$BuildDir = "build/bootstrap"
 )
