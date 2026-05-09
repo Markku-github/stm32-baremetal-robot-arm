@@ -35,8 +35,7 @@ Unit tests should:
 - run on the host machine rather than on the STM32 target
 - be wired into an automated test command
 - stay narrow and behavior-focused
-
-The first implementation branch for this layer should create a host-native unit-test harness under `tests/` and hook it into CMake/CTest.
+- use the repository host-test harness under `tests/` with CMake/CTest integration
 
 ### 2. Integration tests
 

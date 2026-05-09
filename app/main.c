@@ -9,6 +9,8 @@
 #include <stdint.h>
 
 #include "board_nucleo_f767zi.h"
+#include "debug_command_handler.h"
+#include "debug_command_shell.h"
 #include "pca9685.h"
 #include "robot_arm.h"
 
@@ -18,14 +20,14 @@
 #define PCA9685_SELF_TEST_CHANNEL 0U
 #define PCA9685_SELF_TEST_PULSE_US 1500U
 #define MAIN_DEGREES_TO_RADIANS 0.01745329251994329577f
-#define MAIN_RADIANS_TO_DEGREES 57.2957795130823208768f
-#define MAIN_COMMAND_BUFFER_CAPACITY 64U
 #define ROBOT_DIRECT_POSE_BASE_DEG 0.0f
 #define ROBOT_DIRECT_POSE_SHOULDER_DEG 10.0f
 #define ROBOT_DIRECT_POSE_ELBOW_DEG -10.0f
 #define ROBOT_DIRECT_POSE_WRIST_TILT_DEG 5.0f
 #define ROBOT_DIRECT_POSE_WRIST_ROTATE_DEG -15.0f
 #define ROBOT_DIRECT_POSE_GRIPPER_DEG 10.0f
+
+static void debug_command_shell_execute(void *context, const char *command_line);
 
 /**
  * @brief  Provide a short busy-wait delay for the cooperative main loop
@@ -72,427 +74,53 @@ static float degrees_to_radians(float degrees)
     return degrees * MAIN_DEGREES_TO_RADIANS;
 }
 
-static float radians_to_degrees(float radians)
-{
-    return radians * MAIN_RADIANS_TO_DEGREES;
-}
-
-static uint8_t ascii_to_upper(uint8_t value)
-{
-    if ((value >= (uint8_t)'a') && (value <= (uint8_t)'z'))
-    {
-        return (uint8_t)(value - ((uint8_t)'a' - (uint8_t)'A'));
-    }
-
-    return value;
-}
-
-static bool is_ascii_whitespace(uint8_t value)
-{
-    return (value == (uint8_t)' ') || (value == (uint8_t)'\t');
-}
-
-static bool is_ascii_digit(uint8_t value)
-{
-    return (value >= (uint8_t)'0') && (value <= (uint8_t)'9');
-}
-
-static uint8_t trim_command_line(char *line, uint8_t length)
-{
-    uint8_t start_index = 0U;
-    uint8_t end_index = length;
-    uint8_t trimmed_length;
-    uint8_t index;
-
-    while ((start_index < length) && is_ascii_whitespace((uint8_t)line[start_index]))
-    {
-        start_index++;
-    }
-
-    while ((end_index > start_index) && is_ascii_whitespace((uint8_t)line[end_index - 1U]))
-    {
-        end_index--;
-    }
-
-    trimmed_length = (uint8_t)(end_index - start_index);
-    for (index = 0U; index < trimmed_length; index++)
-    {
-        line[index] = line[start_index + index];
-    }
-
-    line[trimmed_length] = '\0';
-    return trimmed_length;
-}
-
-static const char *skip_ascii_whitespace_in_command(const char *cursor)
-{
-    if (cursor == 0)
-    {
-        return 0;
-    }
-
-    while ((*cursor != '\0') && is_ascii_whitespace((uint8_t)(*cursor)))
-    {
-        cursor++;
-    }
-
-    return cursor;
-}
-
-static bool command_matches_name_with_arguments(
-    const char *command_line,
-    const char *command_name,
-    const char **arguments)
-{
-    uint8_t index = 0U;
-    const char *cursor;
-
-    if (arguments != 0)
-    {
-        *arguments = 0;
-    }
-
-    if ((command_line == 0) || (command_name == 0))
-    {
-        return false;
-    }
-
-    while (command_name[index] != '\0')
-    {
-        if (ascii_to_upper((uint8_t)command_line[index]) != ascii_to_upper((uint8_t)command_name[index]))
-        {
-            return false;
-        }
-
-        index++;
-    }
-
-    if ((command_line[index] != '\0') && !is_ascii_whitespace((uint8_t)command_line[index]))
-    {
-        return false;
-    }
-
-    cursor = skip_ascii_whitespace_in_command(&command_line[index]);
-    if (arguments != 0)
-    {
-        *arguments = cursor;
-    }
-
-    return true;
-}
-
-static bool parse_signed_int32_token(const char **cursor, int32_t *value)
-{
-    const char *token;
-    int32_t parsed_value = 0;
-    bool negative = false;
-
-    if ((cursor == 0) || (*cursor == 0) || (value == 0))
-    {
-        return false;
-    }
-
-    token = skip_ascii_whitespace_in_command(*cursor);
-    if ((token == 0) || (*token == '\0'))
-    {
-        return false;
-    }
-
-    if ((*token == '+') || (*token == '-'))
-    {
-        negative = *token == '-';
-        token++;
-    }
-
-    if (!is_ascii_digit((uint8_t)(*token)))
-    {
-        return false;
-    }
-
-    while (is_ascii_digit((uint8_t)(*token)))
-    {
-        const int32_t digit = (int32_t)(*token - '0');
-
-        if (parsed_value > ((2147483647 - digit) / 10))
-        {
-            return false;
-        }
-
-        parsed_value = (parsed_value * 10) + digit;
-        token++;
-    }
-
-    if ((*token != '\0') && !is_ascii_whitespace((uint8_t)(*token)))
-    {
-        return false;
-    }
-
-    *value = negative ? -parsed_value : parsed_value;
-    *cursor = skip_ascii_whitespace_in_command(token);
-    return true;
-}
-
 static void write_prompt(void)
 {
     board_nucleo_f767zi_write_debug_string("> ");
 }
 
-static void write_unsigned_decimal(uint32_t value)
+static void debug_command_shell_write_string(void *context, const char *text)
 {
-    char digits[10];
-    uint8_t digit_count = 0U;
-
-    if (value == 0U)
-    {
-        (void)board_nucleo_f767zi_write_debug_byte((uint8_t)'0');
-        return;
-    }
-
-    while (value > 0U)
-    {
-        digits[digit_count] = (char)('0' + (value % 10U));
-        digit_count++;
-        value /= 10U;
-    }
-
-    while (digit_count > 0U)
-    {
-        digit_count--;
-        (void)board_nucleo_f767zi_write_debug_byte((uint8_t)digits[digit_count]);
-    }
+    (void)context;
+    board_nucleo_f767zi_write_debug_string(text);
 }
 
-static void write_signed_decimal(int32_t value)
+static void debug_command_shell_write_byte(void *context, uint8_t byte)
 {
-    uint32_t magnitude;
-
-    if (value < 0)
-    {
-        (void)board_nucleo_f767zi_write_debug_byte((uint8_t)'-');
-        magnitude = (uint32_t)(-value);
-    }
-    else
-    {
-        magnitude = (uint32_t)value;
-    }
-
-    write_unsigned_decimal(magnitude);
+    (void)context;
+    (void)board_nucleo_f767zi_write_debug_byte(byte);
 }
 
-static int32_t round_float_to_int32(float value)
+static void debug_command_shell_write_prompt(void *context)
 {
-    if (value < 0.0f)
-    {
-        return (int32_t)(value - 0.5f);
-    }
-
-    return (int32_t)(value + 0.5f);
-}
-
-static void write_joint_status_line(const char *joint_name, float angle_rad)
-{
-    board_nucleo_f767zi_write_debug_string(joint_name);
-    board_nucleo_f767zi_write_debug_string("=");
-    write_signed_decimal(round_float_to_int32(radians_to_degrees(angle_rad)));
-    board_nucleo_f767zi_write_debug_string(" deg\r\n");
-}
-
-static void write_help_text(void)
-{
-    board_nucleo_f767zi_write_debug_string("Commands:\r\n");
-    board_nucleo_f767zi_write_debug_string("HELP\r\n");
-    board_nucleo_f767zi_write_debug_string("HOME\r\n");
-    board_nucleo_f767zi_write_debug_string("POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n");
-    board_nucleo_f767zi_write_debug_string("STATUS\r\n");
-}
-
-static void write_command_ok(const char *command_name)
-{
-    board_nucleo_f767zi_write_debug_string("OK ");
-    board_nucleo_f767zi_write_debug_string(command_name);
-    board_nucleo_f767zi_write_debug_string("\r\n");
-}
-
-static bool parse_pose_arguments(const char *arguments, robot_arm_pose_t *pose)
-{
-    const char *cursor = arguments;
-    int32_t base_deg;
-    int32_t shoulder_deg;
-    int32_t elbow_deg;
-    int32_t wrist_tilt_deg;
-    int32_t wrist_rotate_deg;
-    int32_t gripper_deg;
-
-    if ((arguments == 0) || (pose == 0))
-    {
-        return false;
-    }
-
-    if (!parse_signed_int32_token(&cursor, &base_deg)
-        || !parse_signed_int32_token(&cursor, &shoulder_deg)
-        || !parse_signed_int32_token(&cursor, &elbow_deg)
-        || !parse_signed_int32_token(&cursor, &wrist_tilt_deg)
-        || !parse_signed_int32_token(&cursor, &wrist_rotate_deg)
-        || !parse_signed_int32_token(&cursor, &gripper_deg)
-        || ((cursor != 0) && (*cursor != '\0')))
-    {
-        return false;
-    }
-
-    pose->base_rad = degrees_to_radians((float)base_deg);
-    pose->shoulder_rad = degrees_to_radians((float)shoulder_deg);
-    pose->elbow_rad = degrees_to_radians((float)elbow_deg);
-    pose->wrist_tilt_rad = degrees_to_radians((float)wrist_tilt_deg);
-    pose->wrist_rotate_rad = degrees_to_radians((float)wrist_rotate_deg);
-    pose->gripper_rad = degrees_to_radians((float)gripper_deg);
-
-    return true;
-}
-
-static void write_status_text(const robot_arm_t *robot)
-{
-    robot_arm_pose_t pose;
-
-    if ((robot == 0) || (robot_arm_get_current_pose(robot, &pose) != ROBOT_ARM_OK))
-    {
-        board_nucleo_f767zi_write_debug_string("ERR CONTROLLER_NOT_READY\r\n");
-        return;
-    }
-
-    board_nucleo_f767zi_write_debug_string("STATUS\r\n");
-    write_joint_status_line("base", pose.base_rad);
-    write_joint_status_line("shoulder", pose.shoulder_rad);
-    write_joint_status_line("elbow", pose.elbow_rad);
-    write_joint_status_line("wrist_tilt", pose.wrist_tilt_rad);
-    write_joint_status_line("wrist_rotate", pose.wrist_rotate_rad);
-    write_joint_status_line("gripper", pose.gripper_rad);
-}
-
-static void execute_debug_command(const char *command_line, bool robot_ready, robot_arm_t *robot)
-{
-    const char *arguments = 0;
-
-    if ((command_line == 0) || (command_line[0] == '\0'))
-    {
-        write_prompt();
-        return;
-    }
-
-    if (command_matches_name_with_arguments(command_line, "HELP", &arguments))
-    {
-        if ((arguments != 0) && (arguments[0] != '\0'))
-        {
-            board_nucleo_f767zi_write_debug_string("ERR INVALID_ARGUMENT\r\n");
-        }
-        else
-        {
-            write_help_text();
-        }
-
-        write_prompt();
-        return;
-    }
-
-    if (command_matches_name_with_arguments(command_line, "STATUS", &arguments))
-    {
-        if ((arguments != 0) && (arguments[0] != '\0'))
-        {
-            board_nucleo_f767zi_write_debug_string("ERR INVALID_ARGUMENT\r\n");
-        }
-        else if (!robot_ready)
-        {
-            board_nucleo_f767zi_write_debug_string("ERR CONTROLLER_NOT_READY\r\n");
-        }
-        else
-        {
-            write_status_text(robot);
-        }
-
-        write_prompt();
-        return;
-    }
-
-    if (command_matches_name_with_arguments(command_line, "HOME", &arguments))
-    {
-        if ((arguments != 0) && (arguments[0] != '\0'))
-        {
-            board_nucleo_f767zi_write_debug_string("ERR INVALID_ARGUMENT\r\n");
-        }
-        else if (!robot_ready || (robot == 0))
-        {
-            board_nucleo_f767zi_write_debug_string("ERR CONTROLLER_NOT_READY\r\n");
-        }
-        else if (robot_arm_home(robot) != ROBOT_ARM_OK)
-        {
-            board_nucleo_f767zi_write_debug_string("ERR COMMAND_FAILED\r\n");
-        }
-        else
-        {
-            write_command_ok("HOME");
-        }
-
-        write_prompt();
-        return;
-    }
-
-    if (command_matches_name_with_arguments(command_line, "POSE", &arguments))
-    {
-        robot_arm_pose_t pose;
-
-        if (!robot_ready || (robot == 0))
-        {
-            board_nucleo_f767zi_write_debug_string("ERR CONTROLLER_NOT_READY\r\n");
-        }
-        else if (!parse_pose_arguments(arguments, &pose))
-        {
-            board_nucleo_f767zi_write_debug_string("ERR INVALID_ARGUMENT\r\n");
-        }
-        else if (robot_arm_set_pose_immediate(robot, &pose) != ROBOT_ARM_OK)
-        {
-            board_nucleo_f767zi_write_debug_string("ERR COMMAND_FAILED\r\n");
-        }
-        else
-        {
-            write_command_ok("POSE");
-        }
-
-        write_prompt();
-        return;
-    }
-
-    board_nucleo_f767zi_write_debug_string("ERR UNKNOWN_COMMAND\r\n");
+    (void)context;
     write_prompt();
 }
 
-static void finalize_debug_command(
-    char *command_buffer,
-    uint8_t *command_length,
-    bool *command_overflowed,
-    bool robot_ready,
-    robot_arm_t *robot)
+static const debug_command_handler_io_t debug_command_handler_io = {
+    .write_string = debug_command_shell_write_string,
+    .write_byte = debug_command_shell_write_byte,
+    .write_prompt = debug_command_shell_write_prompt,
+};
+
+static void debug_command_shell_execute(void *context, const char *command_line)
 {
-    uint8_t trimmed_length;
+    debug_command_handler_context_t *execution_context = (debug_command_handler_context_t *)context;
 
-    if ((command_buffer == 0) || (command_length == 0) || (command_overflowed == 0))
+    if (execution_context == 0)
     {
         return;
     }
 
-    if (*command_overflowed)
-    {
-        board_nucleo_f767zi_write_debug_string("ERR COMMAND_TOO_LONG\r\n");
-        *command_length = 0U;
-        *command_overflowed = false;
-        command_buffer[0] = '\0';
-        write_prompt();
-        return;
-    }
-
-    command_buffer[*command_length] = '\0';
-    trimmed_length = trim_command_line(command_buffer, *command_length);
-    *command_length = 0U;
-    execute_debug_command((trimmed_length > 0U) ? command_buffer : "", robot_ready, robot);
+    debug_command_handler_execute(command_line, execution_context, &debug_command_handler_io, 0);
 }
+
+static const debug_command_shell_io_t debug_command_shell_io = {
+    .write_string = debug_command_shell_write_string,
+    .write_byte = debug_command_shell_write_byte,
+    .write_prompt = debug_command_shell_write_prompt,
+    .execute_command = debug_command_shell_execute,
+};
 
 static float robot_pose_joint_angle(const robot_arm_pose_t *pose, robot_arm_joint_id_t joint_id)
 {
@@ -813,25 +441,21 @@ static void run_robot_direct_pose_self_test(bool debug_uart_ready, pca9685_devic
  */
 static void process_debug_uart_input(bool debug_uart_rx_ready, bool robot_ready, robot_arm_t *robot)
 {
-    static char command_buffer[MAIN_COMMAND_BUFFER_CAPACITY];
-    static uint8_t command_length = 0U;
-    static bool command_overflowed = false;
-    static bool previous_byte_was_carriage_return = false;
+    static debug_command_shell_t command_shell;
+    debug_command_handler_context_t execution_context;
 
     if (!debug_uart_rx_ready)
     {
         return;
     }
 
+    execution_context.robot_ready = robot_ready;
+    execution_context.robot = robot_ready ? robot : 0;
+
     if (board_nucleo_f767zi_debug_uart_overflowed())
     {
         board_nucleo_f767zi_clear_debug_uart_overflow();
-        command_length = 0U;
-        command_overflowed = false;
-        command_buffer[0] = '\0';
-        board_nucleo_f767zi_write_debug_string("\r\n[RX overflow]\r\n");
-        write_prompt();
-        previous_byte_was_carriage_return = false;
+        debug_command_shell_handle_transport_overflow(&command_shell, &debug_command_shell_io, &execution_context);
     }
 
     for (;;)
@@ -846,70 +470,11 @@ static void process_debug_uart_input(bool debug_uart_rx_ready, bool robot_ready,
 
         if (status != BSP_UART_OK)
         {
-            command_length = 0U;
-            command_overflowed = false;
-            command_buffer[0] = '\0';
-            board_nucleo_f767zi_write_debug_string("\r\n[RX read error]\r\n");
-            write_prompt();
-            previous_byte_was_carriage_return = false;
+            debug_command_shell_handle_transport_read_error(&command_shell, &debug_command_shell_io, &execution_context);
             return;
         }
 
-        if (received_byte == '\r')
-        {
-            board_nucleo_f767zi_write_debug_string("\r\n");
-            finalize_debug_command(command_buffer, &command_length, &command_overflowed, robot_ready, robot);
-            previous_byte_was_carriage_return = true;
-            continue;
-        }
-
-        if (received_byte == '\n')
-        {
-            if (!previous_byte_was_carriage_return)
-            {
-                board_nucleo_f767zi_write_debug_string("\r\n");
-                finalize_debug_command(command_buffer, &command_length, &command_overflowed, robot_ready, robot);
-            }
-
-            previous_byte_was_carriage_return = false;
-            continue;
-        }
-
-        previous_byte_was_carriage_return = false;
-
-        if ((received_byte == 0x08U) || (received_byte == 0x7FU))
-        {
-            if (!command_overflowed && (command_length > 0U))
-            {
-                command_length--;
-                command_buffer[command_length] = '\0';
-                board_nucleo_f767zi_write_debug_string("\b \b");
-            }
-
-            continue;
-        }
-
-        if ((received_byte < 0x20U) || (received_byte > 0x7EU))
-        {
-            continue;
-        }
-
-        if (command_overflowed)
-        {
-            continue;
-        }
-
-        if (command_length >= (MAIN_COMMAND_BUFFER_CAPACITY - 1U))
-        {
-            command_overflowed = true;
-            continue;
-        }
-
-        command_buffer[command_length] = (char)received_byte;
-        command_length++;
-        command_buffer[command_length] = '\0';
-
-        (void)board_nucleo_f767zi_write_debug_byte(received_byte);
+        debug_command_shell_process_byte(&command_shell, received_byte, &debug_command_shell_io, &execution_context);
     }
 }
 
