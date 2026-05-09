@@ -131,6 +131,28 @@ static bool test_servo_angle_to_pulse_maps_midpoint_and_limits(void)
     return true;
 }
 
+static bool test_servo_angle_to_pulse_supports_reversed_pulse_endpoints(void)
+{
+    servo_t servo;
+    servo_config_t reversed_config = test_config;
+    uint16_t pulse_width_us;
+
+    reversed_config.minimum_pulse_width_us = 2000U;
+    reversed_config.maximum_pulse_width_us = 1000U;
+
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_init(&servo, &reversed_config, &test_device));
+
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_angle_rad_to_pulse_us(&servo, SERVO_TEST_DEG_TO_RAD(-45.0f), &pulse_width_us));
+    TEST_ASSERT_UINT16_EQUAL(2000U, pulse_width_us);
+
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_angle_rad_to_pulse_us(&servo, 0.0f, &pulse_width_us));
+    TEST_ASSERT_UINT16_EQUAL(1500U, pulse_width_us);
+
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_angle_rad_to_pulse_us(&servo, SERVO_TEST_DEG_TO_RAD(45.0f), &pulse_width_us));
+    TEST_ASSERT_UINT16_EQUAL(1000U, pulse_width_us);
+    return true;
+}
+
 static bool test_servo_set_angle_updates_runtime_and_uses_pca9685(void)
 {
     servo_t servo;
@@ -251,6 +273,7 @@ int main(void)
         { "servo_init_rejects_invalid_configuration", test_servo_init_rejects_invalid_configuration },
         { "servo_clamp_angle_respects_limits", test_servo_clamp_angle_respects_limits },
         { "servo_angle_to_pulse_maps_midpoint_and_limits", test_servo_angle_to_pulse_maps_midpoint_and_limits },
+        { "servo_angle_to_pulse_supports_reversed_pulse_endpoints", test_servo_angle_to_pulse_supports_reversed_pulse_endpoints },
         { "servo_angle_to_pulse_applies_offset_and_post_offset_clamp", test_servo_angle_to_pulse_applies_offset_and_post_offset_clamp },
         { "servo_set_angle_updates_runtime_and_uses_pca9685", test_servo_set_angle_updates_runtime_and_uses_pca9685 },
         { "servo_set_angle_clamps_requested_angle_before_updating_state", test_servo_set_angle_clamps_requested_angle_before_updating_state },

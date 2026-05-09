@@ -47,7 +47,8 @@ typedef struct
 /**
  * @brief  Initialize one servo descriptor on top of a PCA9685 device
  * @param  servo: destination for the servo runtime state
- * @param  config: static servo calibration and channel configuration
+ * @param  config: static servo calibration and channel configuration; pulse endpoints map to the
+ *                 logical minimum and maximum angles and may be reversed for inverted mechanisms
  * @param  device: initialized PCA9685 device used to drive this servo
  * @retval SERVO_OK: servo descriptor initialized successfully
  * @retval SERVO_ERR_INVALID_ARGUMENT: servo, config, or device invalid
