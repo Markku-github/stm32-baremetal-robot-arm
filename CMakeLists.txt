@@ -24,8 +24,11 @@ else()
     set(MAP_FILE ${CMAKE_CURRENT_BINARY_DIR}/${FIRMWARE_TARGET}.map)
 
     add_executable(${FIRMWARE_TARGET}
+        app/boot_self_test.c
+        app/debug_console.c
         app/debug_command_handler.c
         app/debug_command_parser.c
+        app/debug_command_runtime.c
         app/debug_command_shell.c
         app/main.c
         bsp/board_nucleo_f767zi.c
