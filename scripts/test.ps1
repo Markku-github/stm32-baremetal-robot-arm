@@ -11,12 +11,52 @@ them through CTest.
 
 param(
     [string]$BuildDir = "build/host-tests",
-    [string]$Compiler = ""
+    [string]$Compiler = "",
+    [string]$ResultsDir = "test_results",
+    [string]$TestSet = "host-ctest-full"
 )
 
 $sourceDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $fullBuildDir = [System.IO.Path]::GetFullPath((Join-Path $sourceDir $BuildDir))
+$fullResultsDir = [System.IO.Path]::GetFullPath((Join-Path $sourceDir $ResultsDir))
 $cacheFile = Join-Path $fullBuildDir "CMakeCache.txt"
+$runTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$sanitizedTestSet = ($TestSet.ToLowerInvariant() -replace '[^a-z0-9._-]', '-')
+$runResultsDir = Join-Path $fullResultsDir ("{0}_{1}" -f $runTimestamp, $sanitizedTestSet)
+$configureLog = Join-Path $runResultsDir "configure.log"
+$buildLog = Join-Path $runResultsDir "build.log"
+$ctestLog = Join-Path $runResultsDir "ctest.log"
+$summaryPath = Join-Path $runResultsDir "summary.txt"
+
+function Invoke-LoggedExternalCommand {
+    param(
+        [string]$Executable,
+        [object[]]$Arguments,
+        [string]$LogPath
+    )
+
+    $null = & $Executable @Arguments *>&1 | Tee-Object -FilePath $LogPath
+    return [int]$LASTEXITCODE
+}
+
+function Write-RunSummary {
+    param(
+        [string[]]$Lines
+    )
+
+    $Lines | Set-Content -Path $summaryPath -Encoding utf8
+}
+
+New-Item -ItemType Directory -Path $runResultsDir -Force | Out-Null
+Write-Host "Writing test results to $runResultsDir"
+
+$summaryLines = @(
+    "script=scripts/test.ps1",
+    "timestamp=$runTimestamp",
+    "test_set=$sanitizedTestSet",
+    "build_dir=$fullBuildDir",
+    "results_dir=$runResultsDir"
+)
 
 function Resolve-CompilerReference {
     param(
@@ -165,16 +205,36 @@ if ($shouldConfigure) {
         "-DCMAKE_C_COMPILER=$cmakeCompilerPath"
     )
 
-    & cmake @configureArgs
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+    $configureExitCode = Invoke-LoggedExternalCommand -Executable "cmake" -Arguments $configureArgs -LogPath $configureLog
+    $summaryLines += "configure=run"
+    $summaryLines += "configure_exit_code=$configureExitCode"
+    Write-RunSummary -Lines $summaryLines
+
+    if ($configureExitCode -ne 0) {
+        exit $configureExitCode
     }
 }
-
-cmake --build $fullBuildDir
-if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
+else {
+    $summaryLines += "configure=skipped"
+    $summaryLines += "configure_exit_code=0"
 }
 
-ctest --test-dir $fullBuildDir --output-on-failure
-exit $LASTEXITCODE
+$buildExitCode = Invoke-LoggedExternalCommand -Executable "cmake" -Arguments @("--build", $fullBuildDir) -LogPath $buildLog
+$summaryLines += "build_exit_code=$buildExitCode"
+Write-RunSummary -Lines $summaryLines
+
+if ($buildExitCode -ne 0) {
+    exit $buildExitCode
+}
+
+$ctestExitCode = Invoke-LoggedExternalCommand -Executable "ctest" -Arguments @("--test-dir", $fullBuildDir, "--output-on-failure") -LogPath $ctestLog
+$summaryLines += "ctest_exit_code=$ctestExitCode"
+
+$lastTestLog = Join-Path $fullBuildDir "Testing/Temporary/LastTest.log"
+if (Test-Path $lastTestLog) {
+    Copy-Item $lastTestLog (Join-Path $runResultsDir "ctest-lasttest.log") -Force
+    $summaryLines += "ctest_lasttest_log=ctest-lasttest.log"
+}
+
+Write-RunSummary -Lines $summaryLines
+exit $ctestExitCode

@@ -114,6 +114,28 @@ The repository should grow toward this layout:
 - `tests/system/`
 - `docs/manual_tests/` or a clearly named equivalent manual-test location when procedures become numerous
 
+## Test result collection
+
+Generated test logs and local result artifacts should be collected under the ignored root directory `test_results/`.
+
+Use one run directory per test invocation, named as:
+
+- `YYYYMMDD_HHMMSS_<test-set>`
+
+The `<test-set>` label should describe the executed suite clearly, for example:
+
+- `host-ctest-full`
+- `host-ctest-integration`
+- `mvp-powered-validation`
+
+Each run directory should contain the raw logs and a short summary that identifies:
+
+- which script or command produced the run
+- which test set was executed
+- whether configure, build, and test phases passed or failed
+
+Generated logs under `test_results/` are local evidence and should not be committed to the repository. Only durable procedures, summarized observed results, and justified residual gaps belong in tracked documentation.
+
 ## Planned rollout after the current UART branch
 
 1. Finish `feature/mvp-uart-commands` without retrofitting this policy onto that already-open branch.
