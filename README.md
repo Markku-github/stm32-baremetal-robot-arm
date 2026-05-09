@@ -13,11 +13,22 @@ The current firmware baseline currently includes:
 - HSI-based system initialization
 - GPIO output support and Nucleo-F767ZI LD1 control
 - USART6 transmit support for the external CH340 adapter
-- interrupt-driven USART6 receive buffering with a simple echo test loop
+- interrupt-driven USART6 receive buffering with a line-based command shell
 - I2C1 bring-up on `PB8`/`PB9` for the PCA9685 bus
 - PCA9685 device initialization and PWM frequency setup on the custom I2C layer
 - PCA9685 raw channel PWM and pulse-width based channel control helpers
 - boot-time PCA9685 register self-test with readback verification and safe output disable
+- servo abstraction on top of the PCA9685 driver
+- conservative six-servo robot baseline with HOME and direct-pose support
+- boot-time robot HOME and direct-pose integration self-tests with register readback validation
+- UART commands for `HELP`, `HOME`, `POSE`, and `STATUS`
+
+## Current UART command set
+
+- `HELP`
+- `HOME`
+- `POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>`
+- `STATUS`
 
 ## Hardware baseline
 
