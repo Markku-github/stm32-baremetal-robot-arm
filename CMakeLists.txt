@@ -51,6 +51,7 @@ target_compile_options(${FIRMWARE_TARGET} PRIVATE
     -Wall
     -Wextra
     -Wpedantic
+    -Werror
 )
 
 target_link_options(${FIRMWARE_TARGET} PRIVATE
