@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "board_nucleo_f767zi.h"
+#include "debug_console.h"
 #include "debug_command_handler.h"
 #include "debug_command_shell.h"
 #include "pca9685.h"
@@ -42,25 +43,6 @@ static void boot_delay(volatile uint32_t cycles)
     }
 }
 
-static void write_hex_nibble(uint8_t nibble)
-{
-    const uint8_t character = (nibble < 10U) ? (uint8_t)('0' + nibble) : (uint8_t)('A' + (nibble - 10U));
-
-    (void)board_nucleo_f767zi_write_debug_byte(character);
-}
-
-static void write_hex_byte(uint8_t value)
-{
-    write_hex_nibble((uint8_t)(value >> 4U));
-    write_hex_nibble((uint8_t)(value & 0x0FU));
-}
-
-static void write_hex_word(uint16_t value)
-{
-    write_hex_byte((uint8_t)(value >> 8U));
-    write_hex_byte((uint8_t)(value & 0x00FFU));
-}
-
 static uint16_t pca9685_self_test_expected_off_count(uint16_t pwm_frequency_hz, uint16_t pulse_width_us)
 {
     const uint64_t pulse_counts = ((uint64_t)pulse_width_us * (uint64_t)pwm_frequency_hz * (uint64_t)PCA9685_PWM_STEPS + 500000ULL)
@@ -74,33 +56,10 @@ static float degrees_to_radians(float degrees)
     return degrees * MAIN_DEGREES_TO_RADIANS;
 }
 
-static void write_prompt(void)
-{
-    board_nucleo_f767zi_write_debug_string("> ");
-}
-
-static void debug_command_shell_write_string(void *context, const char *text)
-{
-    (void)context;
-    board_nucleo_f767zi_write_debug_string(text);
-}
-
-static void debug_command_shell_write_byte(void *context, uint8_t byte)
-{
-    (void)context;
-    (void)board_nucleo_f767zi_write_debug_byte(byte);
-}
-
-static void debug_command_shell_write_prompt(void *context)
-{
-    (void)context;
-    write_prompt();
-}
-
 static const debug_command_handler_io_t debug_command_handler_io = {
-    .write_string = debug_command_shell_write_string,
-    .write_byte = debug_command_shell_write_byte,
-    .write_prompt = debug_command_shell_write_prompt,
+    .write_string = debug_console_write_string_adapter,
+    .write_byte = debug_console_write_byte_adapter,
+    .write_prompt = debug_console_write_prompt_adapter,
 };
 
 static void debug_command_shell_execute(void *context, const char *command_line)
@@ -116,9 +75,9 @@ static void debug_command_shell_execute(void *context, const char *command_line)
 }
 
 static const debug_command_shell_io_t debug_command_shell_io = {
-    .write_string = debug_command_shell_write_string,
-    .write_byte = debug_command_shell_write_byte,
-    .write_prompt = debug_command_shell_write_prompt,
+    .write_string = debug_console_write_string_adapter,
+    .write_byte = debug_console_write_byte_adapter,
+    .write_prompt = debug_console_write_prompt_adapter,
     .execute_command = debug_command_shell_execute,
 };
 
@@ -218,7 +177,7 @@ static robot_pose_readback_status_t write_robot_pose_off_counts(
 
         board_nucleo_f767zi_write_debug_string(servo->name);
         board_nucleo_f767zi_write_debug_string("=0x");
-        write_hex_word(off_count);
+        debug_console_write_hex_word(off_count);
     }
 
     board_nucleo_f767zi_write_debug_string("\r\n");
@@ -309,19 +268,19 @@ static bool run_pca9685_self_test(bool debug_uart_ready, pca9685_device_t *devic
     expected_off_count = pca9685_self_test_expected_off_count(device->pwm_frequency_hz, PCA9685_SELF_TEST_PULSE_US);
 
     board_nucleo_f767zi_write_debug_string("PCA9685 MODE1 = 0x");
-    write_hex_byte(mode1_value);
+    debug_console_write_hex_byte(mode1_value);
     board_nucleo_f767zi_write_debug_string(", MODE2 = 0x");
-    write_hex_byte(mode2_value);
+    debug_console_write_hex_byte(mode2_value);
     board_nucleo_f767zi_write_debug_string("\r\n");
 
     board_nucleo_f767zi_write_debug_string("PCA9685 PRESCALE = 0x");
-    write_hex_byte(prescale_value);
+    debug_console_write_hex_byte(prescale_value);
     board_nucleo_f767zi_write_debug_string(" (expected about 0x79 for 50 Hz @ 25 MHz)\r\n");
 
     board_nucleo_f767zi_write_debug_string("PCA9685 CH0 ON = 0x");
-    write_hex_word(on_count);
+    debug_console_write_hex_word(on_count);
     board_nucleo_f767zi_write_debug_string(", OFF = 0x");
-    write_hex_word(off_count);
+    debug_console_write_hex_word(off_count);
     board_nucleo_f767zi_write_debug_string("\r\n");
 
     if ((on_count != 0U) || (off_count != expected_off_count))
@@ -555,7 +514,7 @@ int main(void)
         if (debug_uart_rx_ready)
         {
             board_nucleo_f767zi_write_debug_string("USART6 RX command shell ready. Type HELP.\r\n");
-            write_prompt();
+            debug_console_write_prompt();
         }
         else
         {
