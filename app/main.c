@@ -122,6 +122,12 @@ static const debug_command_shell_io_t debug_command_shell_io = {
     .execute_command = debug_command_shell_execute,
 };
 
+static bool read_pca9685_channel_counts(
+    const pca9685_device_t *device,
+    uint8_t channel,
+    uint16_t *on_count,
+    uint16_t *off_count);
+
 static float robot_pose_joint_angle(const robot_arm_pose_t *pose, robot_arm_joint_id_t joint_id)
 {
     switch (joint_id)
@@ -147,6 +153,76 @@ static float robot_pose_joint_angle(const robot_arm_pose_t *pose, robot_arm_join
         default:
             return 0.0f;
     }
+}
+
+typedef enum
+{
+    ROBOT_POSE_READBACK_OK = 0,
+    ROBOT_POSE_READBACK_ERR_READ,
+    ROBOT_POSE_READBACK_ERR_MISMATCH,
+} robot_pose_readback_status_t;
+
+static void build_robot_direct_pose(robot_arm_pose_t *pose)
+{
+    if (pose == 0)
+    {
+        return;
+    }
+
+    pose->base_rad = degrees_to_radians(ROBOT_DIRECT_POSE_BASE_DEG);
+    pose->shoulder_rad = degrees_to_radians(ROBOT_DIRECT_POSE_SHOULDER_DEG);
+    pose->elbow_rad = degrees_to_radians(ROBOT_DIRECT_POSE_ELBOW_DEG);
+    pose->wrist_tilt_rad = degrees_to_radians(ROBOT_DIRECT_POSE_WRIST_TILT_DEG);
+    pose->wrist_rotate_rad = degrees_to_radians(ROBOT_DIRECT_POSE_WRIST_ROTATE_DEG);
+    pose->gripper_rad = degrees_to_radians(ROBOT_DIRECT_POSE_GRIPPER_DEG);
+}
+
+static robot_pose_readback_status_t write_robot_pose_off_counts(
+    const robot_arm_t *robot,
+    const robot_arm_pose_t *pose,
+    const pca9685_device_t *device)
+{
+    uint8_t joint_index;
+
+    if ((robot == 0) || (pose == 0) || (device == 0))
+    {
+        return ROBOT_POSE_READBACK_ERR_READ;
+    }
+
+    for (joint_index = 0U; joint_index < (uint8_t)ROBOT_ARM_JOINT_COUNT; joint_index++)
+    {
+        uint16_t pulse_width_us;
+        uint16_t expected_off_count;
+        uint16_t on_count;
+        uint16_t off_count;
+        const robot_arm_joint_id_t joint_id = (robot_arm_joint_id_t)joint_index;
+        const servo_t *servo = robot_arm_get_servo_const(robot, joint_id);
+
+        if ((servo == 0)
+            || (servo_angle_rad_to_pulse_us(servo, robot_pose_joint_angle(pose, joint_id), &pulse_width_us) != SERVO_OK)
+            || !read_pca9685_channel_counts(device, servo->channel, &on_count, &off_count))
+        {
+            return ROBOT_POSE_READBACK_ERR_READ;
+        }
+
+        expected_off_count = pca9685_self_test_expected_off_count(device->pwm_frequency_hz, pulse_width_us);
+        if ((on_count != 0U) || (off_count != expected_off_count))
+        {
+            return ROBOT_POSE_READBACK_ERR_MISMATCH;
+        }
+
+        if (joint_index > 0U)
+        {
+            board_nucleo_f767zi_write_debug_string(", ");
+        }
+
+        board_nucleo_f767zi_write_debug_string(servo->name);
+        board_nucleo_f767zi_write_debug_string("=0x");
+        write_hex_word(off_count);
+    }
+
+    board_nucleo_f767zi_write_debug_string("\r\n");
+    return ROBOT_POSE_READBACK_OK;
 }
 
 static bool read_pca9685_channel_counts(
@@ -267,7 +343,8 @@ static bool run_pca9685_self_test(bool debug_uart_ready, pca9685_device_t *devic
 static void run_robot_home_self_test(bool debug_uart_ready, pca9685_device_t *device)
 {
     robot_arm_t robot;
-    uint8_t joint_index;
+    robot_arm_pose_t home_pose;
+    robot_pose_readback_status_t readback_status;
 
     if (!debug_uart_ready || (device == 0))
     {
@@ -289,47 +366,31 @@ static void run_robot_home_self_test(bool debug_uart_ready, pca9685_device_t *de
         return;
     }
 
-    board_nucleo_f767zi_write_debug_string("Robot HOME OFF counts: ");
-
-    for (joint_index = 0U; joint_index < (uint8_t)ROBOT_ARM_JOINT_COUNT; joint_index++)
+    if (robot_arm_get_home_pose(&robot, &home_pose) != ROBOT_ARM_OK)
     {
-        float home_angle_rad;
-        uint16_t pulse_width_us;
-        uint16_t expected_off_count;
-        uint16_t on_count;
-        uint16_t off_count;
-        const robot_arm_joint_id_t joint_id = (robot_arm_joint_id_t)joint_index;
-        const servo_t *servo = robot_arm_get_servo_const(&robot, joint_id);
-
-        if ((servo == 0)
-            || (robot_arm_get_home_angle_rad(&robot, joint_id, &home_angle_rad) != ROBOT_ARM_OK)
-            || (servo_angle_rad_to_pulse_us(servo, home_angle_rad, &pulse_width_us) != SERVO_OK)
-            || !read_pca9685_channel_counts(device, servo->channel, &on_count, &off_count))
-        {
-            (void)pca9685_disable_all_outputs(device);
-            board_nucleo_f767zi_write_debug_string("Robot HOME readback failed.\r\n");
-            return;
-        }
-
-        expected_off_count = pca9685_self_test_expected_off_count(device->pwm_frequency_hz, pulse_width_us);
-        if ((on_count != 0U) || (off_count != expected_off_count))
-        {
-            (void)pca9685_disable_all_outputs(device);
-            board_nucleo_f767zi_write_debug_string("Robot HOME register readback mismatch.\r\n");
-            return;
-        }
-
-        if (joint_index > 0U)
-        {
-            board_nucleo_f767zi_write_debug_string(", ");
-        }
-
-        board_nucleo_f767zi_write_debug_string(servo->name);
-        board_nucleo_f767zi_write_debug_string("=0x");
-        write_hex_word(off_count);
+        (void)pca9685_disable_all_outputs(device);
+        board_nucleo_f767zi_write_debug_string("Robot HOME readback failed.\r\n");
+        return;
     }
 
-    board_nucleo_f767zi_write_debug_string("\r\n");
+    board_nucleo_f767zi_write_debug_string("Robot HOME OFF counts: ");
+    readback_status = write_robot_pose_off_counts(&robot, &home_pose, device);
+
+    if (readback_status != ROBOT_POSE_READBACK_OK)
+    {
+        (void)pca9685_disable_all_outputs(device);
+
+        if (readback_status == ROBOT_POSE_READBACK_ERR_MISMATCH)
+        {
+            board_nucleo_f767zi_write_debug_string("Robot HOME register readback mismatch.\r\n");
+        }
+        else
+        {
+            board_nucleo_f767zi_write_debug_string("Robot HOME readback failed.\r\n");
+        }
+
+        return;
+    }
 
     if (pca9685_disable_all_outputs(device) != PCA9685_OK)
     {
@@ -345,7 +406,7 @@ static void run_robot_direct_pose_self_test(bool debug_uart_ready, pca9685_devic
     robot_arm_t robot;
     robot_arm_pose_t pose;
     robot_arm_pose_t current_pose;
-    uint8_t joint_index;
+    robot_pose_readback_status_t readback_status;
 
     if (!debug_uart_ready || (device == 0))
     {
@@ -360,12 +421,7 @@ static void run_robot_direct_pose_self_test(bool debug_uart_ready, pca9685_devic
         return;
     }
 
-    pose.base_rad = degrees_to_radians(ROBOT_DIRECT_POSE_BASE_DEG);
-    pose.shoulder_rad = degrees_to_radians(ROBOT_DIRECT_POSE_SHOULDER_DEG);
-    pose.elbow_rad = degrees_to_radians(ROBOT_DIRECT_POSE_ELBOW_DEG);
-    pose.wrist_tilt_rad = degrees_to_radians(ROBOT_DIRECT_POSE_WRIST_TILT_DEG);
-    pose.wrist_rotate_rad = degrees_to_radians(ROBOT_DIRECT_POSE_WRIST_ROTATE_DEG);
-    pose.gripper_rad = degrees_to_radians(ROBOT_DIRECT_POSE_GRIPPER_DEG);
+    build_robot_direct_pose(&pose);
 
     if (robot_arm_set_pose_immediate(&robot, &pose) != ROBOT_ARM_OK)
     {
@@ -382,44 +438,23 @@ static void run_robot_direct_pose_self_test(bool debug_uart_ready, pca9685_devic
     }
 
     board_nucleo_f767zi_write_debug_string("Robot direct pose OFF counts: ");
+    readback_status = write_robot_pose_off_counts(&robot, &current_pose, device);
 
-    for (joint_index = 0U; joint_index < (uint8_t)ROBOT_ARM_JOINT_COUNT; joint_index++)
+    if (readback_status != ROBOT_POSE_READBACK_OK)
     {
-        uint16_t pulse_width_us;
-        uint16_t expected_off_count;
-        uint16_t on_count;
-        uint16_t off_count;
-        const robot_arm_joint_id_t joint_id = (robot_arm_joint_id_t)joint_index;
-        const servo_t *servo = robot_arm_get_servo_const(&robot, joint_id);
+        (void)pca9685_disable_all_outputs(device);
 
-        if ((servo == 0)
-            || (servo_angle_rad_to_pulse_us(servo, robot_pose_joint_angle(&current_pose, joint_id), &pulse_width_us) != SERVO_OK)
-            || !read_pca9685_channel_counts(device, servo->channel, &on_count, &off_count))
+        if (readback_status == ROBOT_POSE_READBACK_ERR_MISMATCH)
         {
-            (void)pca9685_disable_all_outputs(device);
-            board_nucleo_f767zi_write_debug_string("Robot direct pose readback failed.\r\n");
-            return;
-        }
-
-        expected_off_count = pca9685_self_test_expected_off_count(device->pwm_frequency_hz, pulse_width_us);
-        if ((on_count != 0U) || (off_count != expected_off_count))
-        {
-            (void)pca9685_disable_all_outputs(device);
             board_nucleo_f767zi_write_debug_string("Robot direct pose register readback mismatch.\r\n");
-            return;
         }
-
-        if (joint_index > 0U)
+        else
         {
-            board_nucleo_f767zi_write_debug_string(", ");
+            board_nucleo_f767zi_write_debug_string("Robot direct pose readback failed.\r\n");
         }
 
-        board_nucleo_f767zi_write_debug_string(servo->name);
-        board_nucleo_f767zi_write_debug_string("=0x");
-        write_hex_word(off_count);
+        return;
     }
-
-    board_nucleo_f767zi_write_debug_string("\r\n");
 
     if (pca9685_disable_all_outputs(device) != PCA9685_OK)
     {
