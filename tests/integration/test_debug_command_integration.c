@@ -267,6 +267,46 @@ static bool test_pose_and_status_run_through_shell_handler_and_robot(void)
     return true;
 }
 
+static bool test_home_runs_through_shell_handler_and_robot(void)
+{
+    debug_command_shell_t shell;
+    debug_command_integration_context_t context;
+    robot_arm_t robot;
+    robot_arm_pose_t current_pose;
+    pca9685_fake_state_t *fake_state;
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
+
+    debug_command_shell_init(&shell);
+    reset_test_context(&context);
+    context.handler_context.robot_ready = true;
+    context.handler_context.robot = &robot;
+
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+
+    feed_text(&shell, &context, "POSE 10 -10 20 -15 30 10\rHOME\r");
+
+    TEST_ASSERT_UINT32_EQUAL(2U, context.executed_command_count);
+    TEST_ASSERT_UINT32_EQUAL((uint32_t)(ROBOT_ARM_JOINT_COUNT * 2U), fake_state->call_count);
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.base_rad);
+    TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.shoulder_rad);
+    TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.elbow_rad);
+    TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.wrist_tilt_rad);
+    TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.wrist_rotate_rad);
+    TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.gripper_rad);
+    TEST_ASSERT_STRING_EQUAL(
+        "POSE 10 -10 20 -15 30 10\r\n"
+        "OK POSE\r\n"
+        "> "
+        "HOME\r\n"
+        "OK HOME\r\n"
+        "> ",
+        context.output.output);
+    return true;
+}
+
 int main(void)
 {
     uint32_t failed_count = 0U;
@@ -277,6 +317,11 @@ int main(void)
     }
 
     if (!test_pose_and_status_run_through_shell_handler_and_robot())
+    {
+        failed_count++;
+    }
+
+    if (!test_home_runs_through_shell_handler_and_robot())
     {
         failed_count++;
     }
