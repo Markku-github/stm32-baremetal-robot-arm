@@ -20,6 +20,7 @@ add_executable(${FIRMWARE_TARGET}
     bsp/bsp_uart.c
     core/startup.c
     drivers/pca9685/pca9685.c
+    drivers/servo/servo.c
     core/system_stm32f7xx.c
 )
 
