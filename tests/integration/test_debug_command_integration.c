@@ -221,6 +221,48 @@ static bool test_help_command_runs_through_shell_and_handler(void)
     return true;
 }
 
+static bool test_status_reports_not_ready_through_shell_and_handler(void)
+{
+    debug_command_shell_t shell;
+    debug_command_integration_context_t context;
+
+    debug_command_shell_init(&shell);
+    reset_test_context(&context);
+    context.handler_context.robot_ready = false;
+    context.handler_context.robot = 0;
+
+    feed_text(&shell, &context, "STATUS\r");
+
+    TEST_ASSERT_UINT32_EQUAL(1U, context.executed_command_count);
+    TEST_ASSERT_STRING_EQUAL(
+        "STATUS\r\n"
+        "ERR CONTROLLER_NOT_READY\r\n"
+        "> ",
+        context.output.output);
+    return true;
+}
+
+static bool test_unknown_command_reports_error_through_shell_and_handler(void)
+{
+    debug_command_shell_t shell;
+    debug_command_integration_context_t context;
+
+    debug_command_shell_init(&shell);
+    reset_test_context(&context);
+    context.handler_context.robot_ready = false;
+    context.handler_context.robot = 0;
+
+    feed_text(&shell, &context, "FOO\r");
+
+    TEST_ASSERT_UINT32_EQUAL(1U, context.executed_command_count);
+    TEST_ASSERT_STRING_EQUAL(
+        "FOO\r\n"
+        "ERR UNKNOWN_COMMAND\r\n"
+        "> ",
+        context.output.output);
+    return true;
+}
+
 static bool test_pose_and_status_run_through_shell_handler_and_robot(void)
 {
     debug_command_shell_t shell;
@@ -312,6 +354,16 @@ int main(void)
     uint32_t failed_count = 0U;
 
     if (!test_help_command_runs_through_shell_and_handler())
+    {
+        failed_count++;
+    }
+
+    if (!test_status_reports_not_ready_through_shell_and_handler())
+    {
+        failed_count++;
+    }
+
+    if (!test_unknown_command_reports_error_through_shell_and_handler())
     {
         failed_count++;
     }
