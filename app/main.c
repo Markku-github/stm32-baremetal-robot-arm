@@ -1,7 +1,7 @@
 /**
  ******************************************************************************
  * @file    main.c
- * @brief   Early application entry point for board bring-up, controller self-tests, and USART6 echo testing
+ * @brief   Early application entry point for board bring-up, controller self-tests, and USART6 command-shell handling
  ******************************************************************************
  */
 
@@ -92,6 +92,11 @@ static bool is_ascii_whitespace(uint8_t value)
     return (value == (uint8_t)' ') || (value == (uint8_t)'\t');
 }
 
+static bool is_ascii_digit(uint8_t value)
+{
+    return (value >= (uint8_t)'0') && (value <= (uint8_t)'9');
+}
+
 static uint8_t trim_command_line(char *line, uint8_t length)
 {
     uint8_t start_index = 0U;
@@ -119,16 +124,40 @@ static uint8_t trim_command_line(char *line, uint8_t length)
     return trimmed_length;
 }
 
-static bool command_equals(const char *command_line, const char *command_name)
+static const char *skip_ascii_whitespace_in_command(const char *cursor)
+{
+    if (cursor == 0)
+    {
+        return 0;
+    }
+
+    while ((*cursor != '\0') && is_ascii_whitespace((uint8_t)(*cursor)))
+    {
+        cursor++;
+    }
+
+    return cursor;
+}
+
+static bool command_matches_name_with_arguments(
+    const char *command_line,
+    const char *command_name,
+    const char **arguments)
 {
     uint8_t index = 0U;
+    const char *cursor;
+
+    if (arguments != 0)
+    {
+        *arguments = 0;
+    }
 
     if ((command_line == 0) || (command_name == 0))
     {
         return false;
     }
 
-    while ((command_line[index] != '\0') && (command_name[index] != '\0'))
+    while (command_name[index] != '\0')
     {
         if (ascii_to_upper((uint8_t)command_line[index]) != ascii_to_upper((uint8_t)command_name[index]))
         {
@@ -138,7 +167,69 @@ static bool command_equals(const char *command_line, const char *command_name)
         index++;
     }
 
-    return (command_line[index] == '\0') && (command_name[index] == '\0');
+    if ((command_line[index] != '\0') && !is_ascii_whitespace((uint8_t)command_line[index]))
+    {
+        return false;
+    }
+
+    cursor = skip_ascii_whitespace_in_command(&command_line[index]);
+    if (arguments != 0)
+    {
+        *arguments = cursor;
+    }
+
+    return true;
+}
+
+static bool parse_signed_int32_token(const char **cursor, int32_t *value)
+{
+    const char *token;
+    int32_t parsed_value = 0;
+    bool negative = false;
+
+    if ((cursor == 0) || (*cursor == 0) || (value == 0))
+    {
+        return false;
+    }
+
+    token = skip_ascii_whitespace_in_command(*cursor);
+    if ((token == 0) || (*token == '\0'))
+    {
+        return false;
+    }
+
+    if ((*token == '+') || (*token == '-'))
+    {
+        negative = *token == '-';
+        token++;
+    }
+
+    if (!is_ascii_digit((uint8_t)(*token)))
+    {
+        return false;
+    }
+
+    while (is_ascii_digit((uint8_t)(*token)))
+    {
+        const int32_t digit = (int32_t)(*token - '0');
+
+        if (parsed_value > ((2147483647 - digit) / 10))
+        {
+            return false;
+        }
+
+        parsed_value = (parsed_value * 10) + digit;
+        token++;
+    }
+
+    if ((*token != '\0') && !is_ascii_whitespace((uint8_t)(*token)))
+    {
+        return false;
+    }
+
+    *value = negative ? -parsed_value : parsed_value;
+    *cursor = skip_ascii_whitespace_in_command(token);
+    return true;
 }
 
 static void write_prompt(void)
@@ -210,7 +301,52 @@ static void write_help_text(void)
 {
     board_nucleo_f767zi_write_debug_string("Commands:\r\n");
     board_nucleo_f767zi_write_debug_string("HELP\r\n");
+    board_nucleo_f767zi_write_debug_string("HOME\r\n");
+    board_nucleo_f767zi_write_debug_string("POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n");
     board_nucleo_f767zi_write_debug_string("STATUS\r\n");
+}
+
+static void write_command_ok(const char *command_name)
+{
+    board_nucleo_f767zi_write_debug_string("OK ");
+    board_nucleo_f767zi_write_debug_string(command_name);
+    board_nucleo_f767zi_write_debug_string("\r\n");
+}
+
+static bool parse_pose_arguments(const char *arguments, robot_arm_pose_t *pose)
+{
+    const char *cursor = arguments;
+    int32_t base_deg;
+    int32_t shoulder_deg;
+    int32_t elbow_deg;
+    int32_t wrist_tilt_deg;
+    int32_t wrist_rotate_deg;
+    int32_t gripper_deg;
+
+    if ((arguments == 0) || (pose == 0))
+    {
+        return false;
+    }
+
+    if (!parse_signed_int32_token(&cursor, &base_deg)
+        || !parse_signed_int32_token(&cursor, &shoulder_deg)
+        || !parse_signed_int32_token(&cursor, &elbow_deg)
+        || !parse_signed_int32_token(&cursor, &wrist_tilt_deg)
+        || !parse_signed_int32_token(&cursor, &wrist_rotate_deg)
+        || !parse_signed_int32_token(&cursor, &gripper_deg)
+        || ((cursor != 0) && (*cursor != '\0')))
+    {
+        return false;
+    }
+
+    pose->base_rad = degrees_to_radians((float)base_deg);
+    pose->shoulder_rad = degrees_to_radians((float)shoulder_deg);
+    pose->elbow_rad = degrees_to_radians((float)elbow_deg);
+    pose->wrist_tilt_rad = degrees_to_radians((float)wrist_tilt_deg);
+    pose->wrist_rotate_rad = degrees_to_radians((float)wrist_rotate_deg);
+    pose->gripper_rad = degrees_to_radians((float)gripper_deg);
+
+    return true;
 }
 
 static void write_status_text(const robot_arm_t *robot)
@@ -232,30 +368,92 @@ static void write_status_text(const robot_arm_t *robot)
     write_joint_status_line("gripper", pose.gripper_rad);
 }
 
-static void execute_debug_command(const char *command_line, bool robot_ready, const robot_arm_t *robot)
+static void execute_debug_command(const char *command_line, bool robot_ready, robot_arm_t *robot)
 {
+    const char *arguments = 0;
+
     if ((command_line == 0) || (command_line[0] == '\0'))
     {
         write_prompt();
         return;
     }
 
-    if (command_equals(command_line, "HELP"))
+    if (command_matches_name_with_arguments(command_line, "HELP", &arguments))
     {
-        write_help_text();
+        if ((arguments != 0) && (arguments[0] != '\0'))
+        {
+            board_nucleo_f767zi_write_debug_string("ERR INVALID_ARGUMENT\r\n");
+        }
+        else
+        {
+            write_help_text();
+        }
+
         write_prompt();
         return;
     }
 
-    if (command_equals(command_line, "STATUS"))
+    if (command_matches_name_with_arguments(command_line, "STATUS", &arguments))
     {
-        if (!robot_ready)
+        if ((arguments != 0) && (arguments[0] != '\0'))
+        {
+            board_nucleo_f767zi_write_debug_string("ERR INVALID_ARGUMENT\r\n");
+        }
+        else if (!robot_ready)
         {
             board_nucleo_f767zi_write_debug_string("ERR CONTROLLER_NOT_READY\r\n");
         }
         else
         {
             write_status_text(robot);
+        }
+
+        write_prompt();
+        return;
+    }
+
+    if (command_matches_name_with_arguments(command_line, "HOME", &arguments))
+    {
+        if ((arguments != 0) && (arguments[0] != '\0'))
+        {
+            board_nucleo_f767zi_write_debug_string("ERR INVALID_ARGUMENT\r\n");
+        }
+        else if (!robot_ready || (robot == 0))
+        {
+            board_nucleo_f767zi_write_debug_string("ERR CONTROLLER_NOT_READY\r\n");
+        }
+        else if (robot_arm_home(robot) != ROBOT_ARM_OK)
+        {
+            board_nucleo_f767zi_write_debug_string("ERR COMMAND_FAILED\r\n");
+        }
+        else
+        {
+            write_command_ok("HOME");
+        }
+
+        write_prompt();
+        return;
+    }
+
+    if (command_matches_name_with_arguments(command_line, "POSE", &arguments))
+    {
+        robot_arm_pose_t pose;
+
+        if (!robot_ready || (robot == 0))
+        {
+            board_nucleo_f767zi_write_debug_string("ERR CONTROLLER_NOT_READY\r\n");
+        }
+        else if (!parse_pose_arguments(arguments, &pose))
+        {
+            board_nucleo_f767zi_write_debug_string("ERR INVALID_ARGUMENT\r\n");
+        }
+        else if (robot_arm_set_pose_immediate(robot, &pose) != ROBOT_ARM_OK)
+        {
+            board_nucleo_f767zi_write_debug_string("ERR COMMAND_FAILED\r\n");
+        }
+        else
+        {
+            write_command_ok("POSE");
         }
 
         write_prompt();
@@ -271,7 +469,7 @@ static void finalize_debug_command(
     uint8_t *command_length,
     bool *command_overflowed,
     bool robot_ready,
-    const robot_arm_t *robot)
+    robot_arm_t *robot)
 {
     uint8_t trimmed_length;
 
@@ -613,7 +811,7 @@ static void run_robot_direct_pose_self_test(bool debug_uart_ready, pca9685_devic
  * @note   Line handling stays in thread context so the interrupt handler only
  *         captures received bytes.
  */
-static void process_debug_uart_input(bool debug_uart_rx_ready, bool robot_ready, const robot_arm_t *robot)
+static void process_debug_uart_input(bool debug_uart_rx_ready, bool robot_ready, robot_arm_t *robot)
 {
     static char command_buffer[MAIN_COMMAND_BUFFER_CAPACITY];
     static uint8_t command_length = 0U;
