@@ -292,7 +292,7 @@ static bool test_home_command_resets_pose_and_reports_ok(void)
     TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.elbow_rad);
     TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.wrist_tilt_rad);
     TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.wrist_rotate_rad);
-    TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.gripper_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(20.0f), current_pose.gripper_rad);
     return true;
 }
 
