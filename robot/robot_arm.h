@@ -86,6 +86,24 @@ robot_arm_status_t robot_arm_get_home_angle_rad(
     float *home_angle_rad);
 
 /**
+ * @brief  Read the configured baseline HOME pose as one joint-space structure
+ * @param  robot: initialized robot descriptor
+ * @param  pose: destination for the HOME pose in radians
+ * @retval ROBOT_ARM_OK: HOME pose returned successfully
+ * @retval ROBOT_ARM_ERR_INVALID_ARGUMENT: robot or output pose invalid
+ */
+robot_arm_status_t robot_arm_get_home_pose(const robot_arm_t *robot, robot_arm_pose_t *pose);
+
+/**
+ * @brief  Read the current joint-space pose from the servo runtime state
+ * @param  robot: initialized robot descriptor
+ * @param  pose: destination for the current pose in radians
+ * @retval ROBOT_ARM_OK: current pose returned successfully
+ * @retval ROBOT_ARM_ERR_INVALID_ARGUMENT: robot or output pose invalid
+ */
+robot_arm_status_t robot_arm_get_current_pose(const robot_arm_t *robot, robot_arm_pose_t *pose);
+
+/**
  * @brief  Immediately apply a direct joint-space pose to all six robot servos
  * @param  robot: initialized robot descriptor
  * @param  pose: requested direct pose in radians

@@ -44,6 +44,16 @@ static void robot_arm_fill_pose_from_array(robot_arm_pose_t *pose, const float j
     pose->gripper_rad = joint_angles_rad[ROBOT_ARM_JOINT_GRIPPER];
 }
 
+static void robot_arm_fill_pose_from_servos(robot_arm_pose_t *pose, const servo_t servos[ROBOT_ARM_JOINT_COUNT])
+{
+    pose->base_rad = servos[ROBOT_ARM_JOINT_BASE].current_angle_rad;
+    pose->shoulder_rad = servos[ROBOT_ARM_JOINT_SHOULDER].current_angle_rad;
+    pose->elbow_rad = servos[ROBOT_ARM_JOINT_ELBOW].current_angle_rad;
+    pose->wrist_tilt_rad = servos[ROBOT_ARM_JOINT_WRIST_TILT].current_angle_rad;
+    pose->wrist_rotate_rad = servos[ROBOT_ARM_JOINT_WRIST_ROTATE].current_angle_rad;
+    pose->gripper_rad = servos[ROBOT_ARM_JOINT_GRIPPER].current_angle_rad;
+}
+
 static float robot_arm_pose_joint_angle(const robot_arm_pose_t *pose, robot_arm_joint_id_t joint_id)
 {
     switch (joint_id)
@@ -209,6 +219,28 @@ robot_arm_status_t robot_arm_get_home_angle_rad(
     }
 
     *home_angle_rad = robot->home_pose_rad[(uint8_t)joint_id];
+    return ROBOT_ARM_OK;
+}
+
+robot_arm_status_t robot_arm_get_home_pose(const robot_arm_t *robot, robot_arm_pose_t *pose)
+{
+    if (!robot_arm_is_valid_runtime(robot) || (pose == 0))
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+    }
+
+    robot_arm_fill_pose_from_array(pose, robot->home_pose_rad);
+    return ROBOT_ARM_OK;
+}
+
+robot_arm_status_t robot_arm_get_current_pose(const robot_arm_t *robot, robot_arm_pose_t *pose)
+{
+    if (!robot_arm_is_valid_runtime(robot) || (pose == 0))
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+    }
+
+    robot_arm_fill_pose_from_servos(pose, robot->servos);
     return ROBOT_ARM_OK;
 }
 
