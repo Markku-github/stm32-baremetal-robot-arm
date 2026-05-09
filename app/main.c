@@ -1,7 +1,7 @@
 /**
  ******************************************************************************
  * @file    main.c
- * @brief   Early application entry point for board bring-up, PCA9685 self-test, and USART6 echo testing
+ * @brief   Early application entry point for board bring-up, controller self-tests, and USART6 echo testing
  ******************************************************************************
  */
 
@@ -10,6 +10,7 @@
 
 #include "board_nucleo_f767zi.h"
 #include "pca9685.h"
+#include "robot_arm.h"
 
 #define MAIN_LOOP_DELAY_CYCLES 20000U
 #define MAIN_LED_TOGGLE_TICKS 100U
@@ -57,66 +58,88 @@ static uint16_t pca9685_self_test_expected_off_count(uint16_t pwm_frequency_hz, 
     return (uint16_t)pulse_counts;
 }
 
-static void run_pca9685_self_test(bool debug_uart_ready)
+static bool read_pca9685_channel_counts(
+    const pca9685_device_t *device,
+    uint8_t channel,
+    uint16_t *on_count,
+    uint16_t *off_count)
 {
-    pca9685_device_t device;
-    uint8_t mode1_value;
-    uint8_t mode2_value;
-    uint8_t prescale_value;
+    uint8_t register_base;
     uint8_t led_on_low;
     uint8_t led_on_high;
     uint8_t led_off_low;
     uint8_t led_off_high;
+
+    if ((device == 0) || (on_count == 0) || (off_count == 0) || (channel >= PCA9685_CHANNEL_COUNT))
+    {
+        return false;
+    }
+
+    register_base = (uint8_t)(PCA9685_REGISTER_LED0_ON_L + (channel * 4U));
+
+    if ((pca9685_read_register(device->instance, device->address, register_base, &led_on_low) != PCA9685_OK)
+        || (pca9685_read_register(device->instance, device->address, (uint8_t)(register_base + 1U), &led_on_high) != PCA9685_OK)
+        || (pca9685_read_register(device->instance, device->address, (uint8_t)(register_base + 2U), &led_off_low) != PCA9685_OK)
+        || (pca9685_read_register(device->instance, device->address, (uint8_t)(register_base + 3U), &led_off_high) != PCA9685_OK))
+    {
+        return false;
+    }
+
+    *on_count = (uint16_t)((((uint16_t)led_on_high & 0x0FU) << 8U) | led_on_low);
+    *off_count = (uint16_t)((((uint16_t)led_off_high & 0x0FU) << 8U) | led_off_low);
+    return true;
+}
+
+static bool run_pca9685_self_test(bool debug_uart_ready, pca9685_device_t *device)
+{
+    uint8_t mode1_value;
+    uint8_t mode2_value;
+    uint8_t prescale_value;
     uint16_t on_count;
     uint16_t off_count;
     uint16_t expected_off_count;
 
-    if (!debug_uart_ready)
+    if (!debug_uart_ready || (device == 0))
     {
-        return;
+        return false;
     }
 
     if (board_nucleo_f767zi_init_pca9685_i2c() != BSP_I2C_OK)
     {
         board_nucleo_f767zi_write_debug_string("I2C1 init failed for PCA9685 self-test.\r\n");
-        return;
+        return false;
     }
 
     board_nucleo_f767zi_write_debug_string("I2C1 ready. Running PCA9685 driver self-test at 0x40...\r\n");
 
-    if (pca9685_init(&device, BSP_I2C_INSTANCE_I2C1, PCA9685_I2C_ADDRESS_DEFAULT) != PCA9685_OK)
+    if (pca9685_init(device, BSP_I2C_INSTANCE_I2C1, PCA9685_I2C_ADDRESS_DEFAULT) != PCA9685_OK)
     {
         board_nucleo_f767zi_write_debug_string("PCA9685 init failed. Check address, pull-ups, and wiring.\r\n");
-        return;
+        return false;
     }
 
-    if (pca9685_set_pwm_frequency(&device, PCA9685_SELF_TEST_FREQUENCY_HZ) != PCA9685_OK)
+    if (pca9685_set_pwm_frequency(device, PCA9685_SELF_TEST_FREQUENCY_HZ) != PCA9685_OK)
     {
         board_nucleo_f767zi_write_debug_string("PCA9685 frequency setup failed.\r\n");
-        return;
+        return false;
     }
 
-    if (pca9685_set_channel_pulse_us(&device, PCA9685_SELF_TEST_CHANNEL, PCA9685_SELF_TEST_PULSE_US) != PCA9685_OK)
+    if (pca9685_set_channel_pulse_us(device, PCA9685_SELF_TEST_CHANNEL, PCA9685_SELF_TEST_PULSE_US) != PCA9685_OK)
     {
         board_nucleo_f767zi_write_debug_string("PCA9685 pulse-width write failed.\r\n");
-        return;
+        return false;
     }
 
-    if ((pca9685_read_register(device.instance, device.address, PCA9685_REGISTER_MODE1, &mode1_value) != PCA9685_OK)
-        || (pca9685_read_register(device.instance, device.address, PCA9685_REGISTER_MODE2, &mode2_value) != PCA9685_OK)
-        || (pca9685_read_register(device.instance, device.address, PCA9685_REGISTER_PRESCALE, &prescale_value) != PCA9685_OK)
-        || (pca9685_read_register(device.instance, device.address, PCA9685_REGISTER_LED0_ON_L, &led_on_low) != PCA9685_OK)
-        || (pca9685_read_register(device.instance, device.address, (uint8_t)(PCA9685_REGISTER_LED0_ON_L + 1U), &led_on_high) != PCA9685_OK)
-        || (pca9685_read_register(device.instance, device.address, (uint8_t)(PCA9685_REGISTER_LED0_ON_L + 2U), &led_off_low) != PCA9685_OK)
-        || (pca9685_read_register(device.instance, device.address, (uint8_t)(PCA9685_REGISTER_LED0_ON_L + 3U), &led_off_high) != PCA9685_OK))
+    if ((pca9685_read_register(device->instance, device->address, PCA9685_REGISTER_MODE1, &mode1_value) != PCA9685_OK)
+        || (pca9685_read_register(device->instance, device->address, PCA9685_REGISTER_MODE2, &mode2_value) != PCA9685_OK)
+        || (pca9685_read_register(device->instance, device->address, PCA9685_REGISTER_PRESCALE, &prescale_value) != PCA9685_OK)
+        || !read_pca9685_channel_counts(device, PCA9685_SELF_TEST_CHANNEL, &on_count, &off_count))
     {
         board_nucleo_f767zi_write_debug_string("PCA9685 readback failed after self-test writes.\r\n");
-        return;
+        return false;
     }
 
-    on_count = (uint16_t)(((uint16_t)led_on_high << 8U) | led_on_low);
-    off_count = (uint16_t)(((uint16_t)led_off_high << 8U) | led_off_low);
-    expected_off_count = pca9685_self_test_expected_off_count(device.pwm_frequency_hz, PCA9685_SELF_TEST_PULSE_US);
+    expected_off_count = pca9685_self_test_expected_off_count(device->pwm_frequency_hz, PCA9685_SELF_TEST_PULSE_US);
 
     board_nucleo_f767zi_write_debug_string("PCA9685 MODE1 = 0x");
     write_hex_byte(mode1_value);
@@ -137,16 +160,93 @@ static void run_pca9685_self_test(bool debug_uart_ready)
     if ((on_count != 0U) || (off_count != expected_off_count))
     {
         board_nucleo_f767zi_write_debug_string("PCA9685 register readback mismatch.\r\n");
-        return;
+        return false;
     }
 
-    if (pca9685_disable_all_outputs(&device) != PCA9685_OK)
+    if (pca9685_disable_all_outputs(device) != PCA9685_OK)
     {
         board_nucleo_f767zi_write_debug_string("PCA9685 output disable failed after self-test.\r\n");
-        return;
+        return false;
     }
 
     board_nucleo_f767zi_write_debug_string("PCA9685 driver self-test OK. Outputs returned to the disabled state. External servo power is not required for this register-level check.\r\n");
+    return true;
+}
+
+static void run_robot_home_self_test(bool debug_uart_ready, pca9685_device_t *device)
+{
+    robot_arm_t robot;
+    uint8_t joint_index;
+
+    if (!debug_uart_ready || (device == 0))
+    {
+        return;
+    }
+
+    board_nucleo_f767zi_write_debug_string("Running robot HOME integration self-test...\r\n");
+
+    if (robot_arm_init(&robot, device) != ROBOT_ARM_OK)
+    {
+        board_nucleo_f767zi_write_debug_string("Robot servo baseline init failed.\r\n");
+        return;
+    }
+
+    if (robot_arm_home(&robot) != ROBOT_ARM_OK)
+    {
+        (void)pca9685_disable_all_outputs(device);
+        board_nucleo_f767zi_write_debug_string("Robot HOME command failed.\r\n");
+        return;
+    }
+
+    board_nucleo_f767zi_write_debug_string("Robot HOME OFF counts: ");
+
+    for (joint_index = 0U; joint_index < (uint8_t)ROBOT_ARM_JOINT_COUNT; joint_index++)
+    {
+        float home_angle_rad;
+        uint16_t pulse_width_us;
+        uint16_t expected_off_count;
+        uint16_t on_count;
+        uint16_t off_count;
+        const robot_arm_joint_id_t joint_id = (robot_arm_joint_id_t)joint_index;
+        const servo_t *servo = robot_arm_get_servo_const(&robot, joint_id);
+
+        if ((servo == 0)
+            || (robot_arm_get_home_angle_rad(&robot, joint_id, &home_angle_rad) != ROBOT_ARM_OK)
+            || (servo_angle_rad_to_pulse_us(servo, home_angle_rad, &pulse_width_us) != SERVO_OK)
+            || !read_pca9685_channel_counts(device, servo->channel, &on_count, &off_count))
+        {
+            (void)pca9685_disable_all_outputs(device);
+            board_nucleo_f767zi_write_debug_string("Robot HOME readback failed.\r\n");
+            return;
+        }
+
+        expected_off_count = pca9685_self_test_expected_off_count(device->pwm_frequency_hz, pulse_width_us);
+        if ((on_count != 0U) || (off_count != expected_off_count))
+        {
+            (void)pca9685_disable_all_outputs(device);
+            board_nucleo_f767zi_write_debug_string("Robot HOME register readback mismatch.\r\n");
+            return;
+        }
+
+        if (joint_index > 0U)
+        {
+            board_nucleo_f767zi_write_debug_string(", ");
+        }
+
+        board_nucleo_f767zi_write_debug_string(servo->name);
+        board_nucleo_f767zi_write_debug_string("=0x");
+        write_hex_word(off_count);
+    }
+
+    board_nucleo_f767zi_write_debug_string("\r\n");
+
+    if (pca9685_disable_all_outputs(device) != PCA9685_OK)
+    {
+        board_nucleo_f767zi_write_debug_string("Robot HOME output disable failed after self-test.\r\n");
+        return;
+    }
+
+    board_nucleo_f767zi_write_debug_string("Robot HOME integration self-test OK. Outputs returned to the disabled state. External servo power is still not required for this register-level check.\r\n");
 }
 
 /**
@@ -226,6 +326,7 @@ static void process_debug_uart_input(bool debug_uart_rx_ready)
 int main(void)
 {
     uint32_t led_tick_counter = 0U;
+    pca9685_device_t pca9685_device;
 
     if (board_nucleo_f767zi_init() != BSP_GPIO_OK)
     {
@@ -240,7 +341,10 @@ int main(void)
     if (debug_uart_ready)
     {
         board_nucleo_f767zi_write_debug_string("Booting...\r\n");
-        run_pca9685_self_test(debug_uart_ready);
+        if (run_pca9685_self_test(debug_uart_ready, &pca9685_device))
+        {
+            run_robot_home_self_test(debug_uart_ready, &pca9685_device);
+        }
 
         if (debug_uart_rx_ready)
         {
