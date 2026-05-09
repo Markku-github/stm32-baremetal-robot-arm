@@ -127,38 +127,6 @@ static void build_robot_direct_pose(robot_arm_pose_t *pose)
     pose->gripper_rad = degrees_to_radians(BOOT_SELF_TEST_DIRECT_POSE_GRIPPER_DEG);
 }
 
-static bool read_pca9685_channel_counts(
-    const pca9685_device_t *device,
-    uint8_t channel,
-    uint16_t *on_count,
-    uint16_t *off_count)
-{
-    uint8_t register_base;
-    uint8_t led_on_low;
-    uint8_t led_on_high;
-    uint8_t led_off_low;
-    uint8_t led_off_high;
-
-    if ((device == 0) || (on_count == 0) || (off_count == 0) || (channel >= PCA9685_CHANNEL_COUNT))
-    {
-        return false;
-    }
-
-    register_base = (uint8_t)(PCA9685_REGISTER_LED0_ON_L + (channel * 4U));
-
-    if ((pca9685_read_register(device->instance, device->address, register_base, &led_on_low) != PCA9685_OK)
-        || (pca9685_read_register(device->instance, device->address, (uint8_t)(register_base + 1U), &led_on_high) != PCA9685_OK)
-        || (pca9685_read_register(device->instance, device->address, (uint8_t)(register_base + 2U), &led_off_low) != PCA9685_OK)
-        || (pca9685_read_register(device->instance, device->address, (uint8_t)(register_base + 3U), &led_off_high) != PCA9685_OK))
-    {
-        return false;
-    }
-
-    *on_count = (uint16_t)((((uint16_t)led_on_high & 0x0FU) << 8U) | led_on_low);
-    *off_count = (uint16_t)((((uint16_t)led_off_high & 0x0FU) << 8U) | led_off_low);
-    return true;
-}
-
 static robot_pose_readback_status_t write_robot_pose_off_counts(
     const robot_arm_t *robot,
     const robot_arm_pose_t *pose,
@@ -182,7 +150,7 @@ static robot_pose_readback_status_t write_robot_pose_off_counts(
 
         if ((servo == 0)
             || (servo_angle_rad_to_pulse_us(servo, robot_pose_joint_angle(pose, joint_id), &pulse_width_us) != SERVO_OK)
-            || !read_pca9685_channel_counts(device, servo->channel, &on_count, &off_count))
+            || (pca9685_read_channel_pwm(device, servo->channel, &on_count, &off_count) != PCA9685_OK))
         {
             return ROBOT_POSE_READBACK_ERR_READ;
         }
@@ -250,7 +218,7 @@ bool boot_self_test_run_pca9685(bool debug_uart_ready, pca9685_device_t *device)
     if ((pca9685_read_register(device->instance, device->address, PCA9685_REGISTER_MODE1, &mode1_value) != PCA9685_OK)
         || (pca9685_read_register(device->instance, device->address, PCA9685_REGISTER_MODE2, &mode2_value) != PCA9685_OK)
         || (pca9685_read_register(device->instance, device->address, PCA9685_REGISTER_PRESCALE, &prescale_value) != PCA9685_OK)
-        || !read_pca9685_channel_counts(device, BOOT_SELF_TEST_CHANNEL, &on_count, &off_count))
+        || (pca9685_read_channel_pwm(device, BOOT_SELF_TEST_CHANNEL, &on_count, &off_count) != PCA9685_OK))
     {
         board_nucleo_f767zi_write_debug_string("PCA9685 readback failed after self-test writes.\r\n");
         return false;

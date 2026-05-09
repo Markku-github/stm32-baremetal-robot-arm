@@ -234,6 +234,58 @@ pca9685_status_t pca9685_set_channel_pwm(
         false);
 }
 
+pca9685_status_t pca9685_read_channel_pwm(
+    const pca9685_device_t *device,
+    uint8_t channel,
+    uint16_t *on_count,
+    uint16_t *off_count)
+{
+    uint8_t register_base;
+    uint8_t led_on_low;
+    uint8_t led_on_high;
+    uint8_t led_off_low;
+    uint8_t led_off_high;
+    pca9685_status_t status;
+
+    if (!pca9685_is_valid_device(device)
+        || (channel >= PCA9685_CHANNEL_COUNT)
+        || (on_count == 0)
+        || (off_count == 0))
+    {
+        return PCA9685_ERR_INVALID_ARGUMENT;
+    }
+
+    register_base = pca9685_channel_register_base(channel);
+
+    status = pca9685_read_register(device->instance, device->address, register_base, &led_on_low);
+    if (status != PCA9685_OK)
+    {
+        return status;
+    }
+
+    status = pca9685_read_register(device->instance, device->address, (uint8_t)(register_base + 1U), &led_on_high);
+    if (status != PCA9685_OK)
+    {
+        return status;
+    }
+
+    status = pca9685_read_register(device->instance, device->address, (uint8_t)(register_base + 2U), &led_off_low);
+    if (status != PCA9685_OK)
+    {
+        return status;
+    }
+
+    status = pca9685_read_register(device->instance, device->address, (uint8_t)(register_base + 3U), &led_off_high);
+    if (status != PCA9685_OK)
+    {
+        return status;
+    }
+
+    *on_count = (uint16_t)((((uint16_t)led_on_high & 0x0FU) << 8U) | led_on_low);
+    *off_count = (uint16_t)((((uint16_t)led_off_high & 0x0FU) << 8U) | led_off_low);
+    return PCA9685_OK;
+}
+
 pca9685_status_t pca9685_disable_all_outputs(const pca9685_device_t *device)
 {
     uint8_t channel;
