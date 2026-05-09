@@ -81,6 +81,22 @@ pca9685_status_t pca9685_set_channel_pwm(
     uint16_t off_count);
 
 /**
+ * @brief  Read raw PWM counter values from one PCA9685 output channel
+ * @param  device: initialized PCA9685 device descriptor
+ * @param  channel: output channel index from 0 to 15
+ * @param  on_count: destination for the turn-on counter value
+ * @param  off_count: destination for the turn-off counter value
+ * @retval PCA9685_OK: channel registers were read successfully
+ * @retval PCA9685_ERR_INVALID_ARGUMENT: device, channel, or output pointers invalid
+ * @retval PCA9685_ERR_I2C: underlying I2C transaction failed
+ */
+pca9685_status_t pca9685_read_channel_pwm(
+    const pca9685_device_t *device,
+    uint8_t channel,
+    uint16_t *on_count,
+    uint16_t *off_count);
+
+/**
  * @brief  Program one PCA9685 output pulse width in microseconds
  * @param  device: initialized PCA9685 device descriptor with a configured PWM frequency
  * @param  channel: output channel index from 0 to 15
