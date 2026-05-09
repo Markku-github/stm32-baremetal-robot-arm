@@ -34,6 +34,16 @@ typedef struct
     float home_pose_rad[ROBOT_ARM_JOINT_COUNT];
 } robot_arm_t;
 
+typedef struct
+{
+    float base_rad;
+    float shoulder_rad;
+    float elbow_rad;
+    float wrist_tilt_rad;
+    float wrist_rotate_rad;
+    float gripper_rad;
+} robot_arm_pose_t;
+
 /**
  * @brief  Initialize the baseline six-servo robot configuration
  * @param  robot: destination for robot-level servo state
@@ -74,5 +84,24 @@ robot_arm_status_t robot_arm_get_home_angle_rad(
     const robot_arm_t *robot,
     robot_arm_joint_id_t joint_id,
     float *home_angle_rad);
+
+/**
+ * @brief  Immediately apply a direct joint-space pose to all six robot servos
+ * @param  robot: initialized robot descriptor
+ * @param  pose: requested direct pose in radians
+ * @retval ROBOT_ARM_OK: pose applied successfully
+ * @retval ROBOT_ARM_ERR_INVALID_ARGUMENT: robot or pose invalid
+ * @retval ROBOT_ARM_ERR_SERVO: one of the underlying servo writes failed
+ */
+robot_arm_status_t robot_arm_set_pose_immediate(robot_arm_t *robot, const robot_arm_pose_t *pose);
+
+/**
+ * @brief  Immediately apply the configured baseline HOME pose
+ * @param  robot: initialized robot descriptor
+ * @retval ROBOT_ARM_OK: HOME pose applied successfully
+ * @retval ROBOT_ARM_ERR_INVALID_ARGUMENT: robot invalid
+ * @retval ROBOT_ARM_ERR_SERVO: one of the underlying servo writes failed
+ */
+robot_arm_status_t robot_arm_home(robot_arm_t *robot);
 
 #endif

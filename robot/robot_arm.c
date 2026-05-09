@@ -29,6 +29,48 @@ static bool robot_arm_is_valid_joint(robot_arm_joint_id_t joint_id)
     return joint_id < ROBOT_ARM_JOINT_COUNT;
 }
 
+static bool robot_arm_is_valid_runtime(const robot_arm_t *robot)
+{
+    return robot != 0;
+}
+
+static void robot_arm_fill_pose_from_array(robot_arm_pose_t *pose, const float joint_angles_rad[ROBOT_ARM_JOINT_COUNT])
+{
+    pose->base_rad = joint_angles_rad[ROBOT_ARM_JOINT_BASE];
+    pose->shoulder_rad = joint_angles_rad[ROBOT_ARM_JOINT_SHOULDER];
+    pose->elbow_rad = joint_angles_rad[ROBOT_ARM_JOINT_ELBOW];
+    pose->wrist_tilt_rad = joint_angles_rad[ROBOT_ARM_JOINT_WRIST_TILT];
+    pose->wrist_rotate_rad = joint_angles_rad[ROBOT_ARM_JOINT_WRIST_ROTATE];
+    pose->gripper_rad = joint_angles_rad[ROBOT_ARM_JOINT_GRIPPER];
+}
+
+static float robot_arm_pose_joint_angle(const robot_arm_pose_t *pose, robot_arm_joint_id_t joint_id)
+{
+    switch (joint_id)
+    {
+        case ROBOT_ARM_JOINT_BASE:
+            return pose->base_rad;
+
+        case ROBOT_ARM_JOINT_SHOULDER:
+            return pose->shoulder_rad;
+
+        case ROBOT_ARM_JOINT_ELBOW:
+            return pose->elbow_rad;
+
+        case ROBOT_ARM_JOINT_WRIST_TILT:
+            return pose->wrist_tilt_rad;
+
+        case ROBOT_ARM_JOINT_WRIST_ROTATE:
+            return pose->wrist_rotate_rad;
+
+        case ROBOT_ARM_JOINT_GRIPPER:
+            return pose->gripper_rad;
+
+        default:
+            return 0.0f;
+    }
+}
+
 static robot_arm_status_t robot_arm_map_servo_status(servo_status_t status)
 {
     if (status == SERVO_OK)
@@ -168,4 +210,43 @@ robot_arm_status_t robot_arm_get_home_angle_rad(
 
     *home_angle_rad = robot->home_pose_rad[(uint8_t)joint_id];
     return ROBOT_ARM_OK;
+}
+
+robot_arm_status_t robot_arm_set_pose_immediate(robot_arm_t *robot, const robot_arm_pose_t *pose)
+{
+    uint8_t joint_index;
+
+    if (!robot_arm_is_valid_runtime(robot) || (pose == 0))
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+    }
+
+    for (joint_index = 0U; joint_index < (uint8_t)ROBOT_ARM_JOINT_COUNT; joint_index++)
+    {
+        const robot_arm_joint_id_t joint_id = (robot_arm_joint_id_t)joint_index;
+        const robot_arm_status_t status = robot_arm_map_servo_status(
+            servo_set_angle_immediate_rad(
+                &robot->servos[joint_index],
+                robot_arm_pose_joint_angle(pose, joint_id)));
+
+        if (status != ROBOT_ARM_OK)
+        {
+            return status;
+        }
+    }
+
+    return ROBOT_ARM_OK;
+}
+
+robot_arm_status_t robot_arm_home(robot_arm_t *robot)
+{
+    robot_arm_pose_t home_pose;
+
+    if (!robot_arm_is_valid_runtime(robot))
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+    }
+
+    robot_arm_fill_pose_from_array(&home_pose, robot->home_pose_rad);
+    return robot_arm_set_pose_immediate(robot, &home_pose);
 }
