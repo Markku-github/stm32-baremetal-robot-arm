@@ -14,8 +14,11 @@
 #define ROBOT_ARM_SHOULDER_SAFE_MIN_PULSE_US 1200U
 #define ROBOT_ARM_SHOULDER_SAFE_MID_PULSE_US 2300U
 #define ROBOT_ARM_SHOULDER_SAFE_MAX_PULSE_US 3200U
-#define ROBOT_ARM_ELBOW_SAFE_MIN_PULSE_US 900U
-#define ROBOT_ARM_ELBOW_SAFE_MAX_PULSE_US 1800U
+#define ROBOT_ARM_ELBOW_SAFE_MIN_ANGLE_RAD 0.0f
+#define ROBOT_ARM_ELBOW_SAFE_MAX_ANGLE_RAD (180.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
+#define ROBOT_ARM_ELBOW_HOME_ANGLE_RAD (102.857142857f * ROBOT_ARM_DEGREES_TO_RADIANS)
+#define ROBOT_ARM_ELBOW_SAFE_MIN_PULSE_US 450U
+#define ROBOT_ARM_ELBOW_SAFE_MAX_PULSE_US 2500U
 #define ROBOT_ARM_GRIPPER_SAFE_CLOSE_PULSE_US 2450U
 #define ROBOT_ARM_GRIPPER_SAFE_OPEN_PULSE_US 1700U
 
@@ -227,9 +230,9 @@ static const robot_arm_joint_calibration_t robot_arm_default_joint_calibrations[
     {
         .name = "elbow",
         .channel = 2U,
-        .minimum_angle_rad = -60.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
-        .maximum_angle_rad = 45.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
-        .home_angle_rad = 0.0f,
+        .minimum_angle_rad = ROBOT_ARM_ELBOW_SAFE_MIN_ANGLE_RAD,
+        .maximum_angle_rad = ROBOT_ARM_ELBOW_SAFE_MAX_ANGLE_RAD,
+        .home_angle_rad = ROBOT_ARM_ELBOW_HOME_ANGLE_RAD,
         .offset_rad = 0.0f,
         .pulse_width_at_min_angle_us = ROBOT_ARM_ELBOW_SAFE_MIN_PULSE_US,
         .pulse_width_at_max_angle_us = ROBOT_ARM_ELBOW_SAFE_MAX_PULSE_US,
