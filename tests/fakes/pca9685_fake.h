@@ -11,6 +11,7 @@ typedef struct
     const pca9685_device_t *last_device;
     uint8_t last_channel;
     uint16_t last_pulse_width_us;
+    uint16_t last_pulse_width_us_by_channel[PCA9685_CHANNEL_COUNT];
     pca9685_status_t next_status;
 } pca9685_fake_state_t;
 

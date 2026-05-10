@@ -4,10 +4,16 @@ static pca9685_fake_state_t pca9685_fake_state_storage;
 
 void pca9685_fake_reset(void)
 {
+    uint8_t channel;
+
     pca9685_fake_state_storage.call_count = 0U;
     pca9685_fake_state_storage.last_device = 0;
     pca9685_fake_state_storage.last_channel = 0U;
     pca9685_fake_state_storage.last_pulse_width_us = 0U;
+    for (channel = 0U; channel < PCA9685_CHANNEL_COUNT; channel++)
+    {
+        pca9685_fake_state_storage.last_pulse_width_us_by_channel[channel] = 0U;
+    }
     pca9685_fake_state_storage.next_status = PCA9685_OK;
 }
 
@@ -25,6 +31,7 @@ pca9685_status_t pca9685_set_channel_pulse_us(
     pca9685_fake_state_storage.last_device = device;
     pca9685_fake_state_storage.last_channel = channel;
     pca9685_fake_state_storage.last_pulse_width_us = pulse_width_us;
+    pca9685_fake_state_storage.last_pulse_width_us_by_channel[channel] = pulse_width_us;
 
     return pca9685_fake_state_storage.next_status;
 }

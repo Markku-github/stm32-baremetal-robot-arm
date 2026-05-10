@@ -9,6 +9,16 @@
 #define ROBOT_ARM_TEST_FLOAT_TOLERANCE 0.0001f
 #define ROBOT_ARM_TEST_BASE_MIN_RAD 0.0f
 #define ROBOT_ARM_TEST_BASE_MAX_RAD ROBOT_ARM_TEST_DEG_TO_RAD(90.0f)
+#define ROBOT_ARM_TEST_SHOULDER_MIN_RAD 0.0f
+#define ROBOT_ARM_TEST_SHOULDER_MID_RAD ROBOT_ARM_TEST_DEG_TO_RAD(90.0f)
+#define ROBOT_ARM_TEST_SHOULDER_MAX_RAD ROBOT_ARM_TEST_DEG_TO_RAD(180.0f)
+#define ROBOT_ARM_TEST_SHOULDER_SAFE_MIN_PULSE_US 1200U
+#define ROBOT_ARM_TEST_SHOULDER_SAFE_MID_PULSE_US 2300U
+#define ROBOT_ARM_TEST_SHOULDER_SAFE_MAX_PULSE_US 3200U
+#define ROBOT_ARM_TEST_ELBOW_MIN_RAD (-ROBOT_ARM_TEST_DEG_TO_RAD(60.0f))
+#define ROBOT_ARM_TEST_ELBOW_MAX_RAD ROBOT_ARM_TEST_DEG_TO_RAD(45.0f)
+#define ROBOT_ARM_TEST_ELBOW_SAFE_MIN_PULSE_US 900U
+#define ROBOT_ARM_TEST_ELBOW_SAFE_MAX_PULSE_US 1800U
 #define ROBOT_ARM_TEST_GRIPPER_HOME_RAD ROBOT_ARM_TEST_DEG_TO_RAD(20.0f)
 #define ROBOT_ARM_TEST_GRIPPER_MIN_RAD 0.0f
 #define ROBOT_ARM_TEST_GRIPPER_MAX_RAD ROBOT_ARM_TEST_DEG_TO_RAD(20.0f)
@@ -97,7 +107,7 @@ static const pca9685_device_t test_device = {
 static void fill_non_home_pose(robot_arm_pose_t *pose)
 {
     pose->base_rad = ROBOT_ARM_TEST_DEG_TO_RAD(10.0f);
-    pose->shoulder_rad = ROBOT_ARM_TEST_DEG_TO_RAD(-10.0f);
+    pose->shoulder_rad = ROBOT_ARM_TEST_DEG_TO_RAD(30.0f);
     pose->elbow_rad = ROBOT_ARM_TEST_DEG_TO_RAD(20.0f);
     pose->wrist_tilt_rad = ROBOT_ARM_TEST_DEG_TO_RAD(-15.0f);
     pose->wrist_rotate_rad = ROBOT_ARM_TEST_DEG_TO_RAD(30.0f);
@@ -109,16 +119,16 @@ static bool test_robot_arm_init_configures_joints_and_home_pose(void)
     static const uint8_t expected_channels[ROBOT_ARM_JOINT_COUNT] = { 0U, 1U, 2U, 3U, 4U, 5U };
     static const float expected_minimum_angles[ROBOT_ARM_JOINT_COUNT] = {
         ROBOT_ARM_TEST_BASE_MIN_RAD,
-        -ROBOT_ARM_TEST_DEG_TO_RAD(35.0f),
-        -ROBOT_ARM_TEST_DEG_TO_RAD(45.0f),
+        ROBOT_ARM_TEST_SHOULDER_MIN_RAD,
+        ROBOT_ARM_TEST_ELBOW_MIN_RAD,
         -ROBOT_ARM_TEST_DEG_TO_RAD(30.0f),
         -ROBOT_ARM_TEST_DEG_TO_RAD(45.0f),
         ROBOT_ARM_TEST_GRIPPER_MIN_RAD,
     };
     static const float expected_maximum_angles[ROBOT_ARM_JOINT_COUNT] = {
         ROBOT_ARM_TEST_BASE_MAX_RAD,
-        ROBOT_ARM_TEST_DEG_TO_RAD(35.0f),
-        ROBOT_ARM_TEST_DEG_TO_RAD(45.0f),
+        ROBOT_ARM_TEST_SHOULDER_MAX_RAD,
+        ROBOT_ARM_TEST_ELBOW_MAX_RAD,
         ROBOT_ARM_TEST_DEG_TO_RAD(30.0f),
         ROBOT_ARM_TEST_DEG_TO_RAD(45.0f),
         ROBOT_ARM_TEST_GRIPPER_MAX_RAD,
@@ -204,6 +214,107 @@ static bool test_robot_arm_set_pose_clamps_base_to_safe_limits(void)
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(ROBOT_ARM_TEST_BASE_MAX_RAD, current_pose.base_rad);
+    return true;
+}
+
+static bool test_robot_arm_set_pose_clamps_shoulder_to_safe_limits(void)
+{
+    robot_arm_t robot;
+    robot_arm_pose_t pose;
+    robot_arm_pose_t current_pose;
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
+    fill_non_home_pose(&pose);
+
+    pose.shoulder_rad = ROBOT_ARM_TEST_DEG_TO_RAD(-50.0f);
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_FLOAT_CLOSE(ROBOT_ARM_TEST_SHOULDER_MIN_RAD, current_pose.shoulder_rad);
+
+    pose.shoulder_rad = ROBOT_ARM_TEST_DEG_TO_RAD(220.0f);
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_FLOAT_CLOSE(ROBOT_ARM_TEST_SHOULDER_MAX_RAD, current_pose.shoulder_rad);
+    return true;
+}
+
+static bool test_robot_arm_shoulder_uses_piecewise_pulse_range(void)
+{
+    robot_arm_t robot;
+    robot_arm_pose_t pose = { 0 };
+    pca9685_fake_state_t *fake_state;
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
+
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+    pose.shoulder_rad = ROBOT_ARM_TEST_SHOULDER_MIN_RAD;
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
+    TEST_ASSERT_UINT16_EQUAL(
+        ROBOT_ARM_TEST_SHOULDER_SAFE_MIN_PULSE_US,
+        fake_state->last_pulse_width_us_by_channel[ROBOT_ARM_JOINT_SHOULDER]);
+
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+    pose.shoulder_rad = ROBOT_ARM_TEST_SHOULDER_MID_RAD;
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
+    TEST_ASSERT_UINT16_EQUAL(
+        ROBOT_ARM_TEST_SHOULDER_SAFE_MID_PULSE_US,
+        fake_state->last_pulse_width_us_by_channel[ROBOT_ARM_JOINT_SHOULDER]);
+
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+    pose.shoulder_rad = ROBOT_ARM_TEST_SHOULDER_MAX_RAD;
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
+    TEST_ASSERT_UINT16_EQUAL(
+        ROBOT_ARM_TEST_SHOULDER_SAFE_MAX_PULSE_US,
+        fake_state->last_pulse_width_us_by_channel[ROBOT_ARM_JOINT_SHOULDER]);
+    return true;
+}
+
+static bool test_robot_arm_set_pose_clamps_elbow_to_safe_limits(void)
+{
+    robot_arm_t robot;
+    robot_arm_pose_t pose;
+    robot_arm_pose_t current_pose;
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
+    fill_non_home_pose(&pose);
+
+    pose.elbow_rad = ROBOT_ARM_TEST_DEG_TO_RAD(-90.0f);
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_FLOAT_CLOSE(ROBOT_ARM_TEST_ELBOW_MIN_RAD, current_pose.elbow_rad);
+
+    pose.elbow_rad = ROBOT_ARM_TEST_DEG_TO_RAD(90.0f);
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_FLOAT_CLOSE(ROBOT_ARM_TEST_ELBOW_MAX_RAD, current_pose.elbow_rad);
+    return true;
+}
+
+static bool test_robot_arm_elbow_uses_expanded_negative_pulse_range(void)
+{
+    robot_arm_t robot;
+    servo_t *elbow;
+    pca9685_fake_state_t *fake_state;
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
+    elbow = robot_arm_get_servo(&robot, ROBOT_ARM_JOINT_ELBOW);
+
+    TEST_ASSERT_TRUE(elbow != 0);
+
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_set_angle_immediate_rad(elbow, ROBOT_ARM_TEST_ELBOW_MIN_RAD));
+    TEST_ASSERT_UINT8_EQUAL(2U, fake_state->last_channel);
+    TEST_ASSERT_UINT16_EQUAL(ROBOT_ARM_TEST_ELBOW_SAFE_MIN_PULSE_US, fake_state->last_pulse_width_us);
+
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+    TEST_ASSERT_INT_EQUAL(SERVO_OK, servo_set_angle_immediate_rad(elbow, ROBOT_ARM_TEST_ELBOW_MAX_RAD));
+    TEST_ASSERT_UINT8_EQUAL(2U, fake_state->last_channel);
+    TEST_ASSERT_UINT16_EQUAL(ROBOT_ARM_TEST_ELBOW_SAFE_MAX_PULSE_US, fake_state->last_pulse_width_us);
     return true;
 }
 
@@ -332,6 +443,10 @@ int main(void)
         { "robot_arm_init_configures_joints_and_home_pose", test_robot_arm_init_configures_joints_and_home_pose },
         { "robot_arm_set_pose_immediate_updates_all_joint_state", test_robot_arm_set_pose_immediate_updates_all_joint_state },
         { "robot_arm_set_pose_clamps_base_to_safe_limits", test_robot_arm_set_pose_clamps_base_to_safe_limits },
+        { "robot_arm_set_pose_clamps_shoulder_to_safe_limits", test_robot_arm_set_pose_clamps_shoulder_to_safe_limits },
+        { "robot_arm_shoulder_uses_piecewise_pulse_range", test_robot_arm_shoulder_uses_piecewise_pulse_range },
+        { "robot_arm_set_pose_clamps_elbow_to_safe_limits", test_robot_arm_set_pose_clamps_elbow_to_safe_limits },
+        { "robot_arm_elbow_uses_expanded_negative_pulse_range", test_robot_arm_elbow_uses_expanded_negative_pulse_range },
         { "robot_arm_set_pose_clamps_gripper_to_safe_limits", test_robot_arm_set_pose_clamps_gripper_to_safe_limits },
         { "robot_arm_home_returns_to_zero_pose", test_robot_arm_home_returns_to_zero_pose },
         { "robot_arm_set_pose_reports_servo_failures", test_robot_arm_set_pose_reports_servo_failures },
