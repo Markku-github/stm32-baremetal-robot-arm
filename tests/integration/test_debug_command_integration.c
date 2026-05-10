@@ -22,6 +22,8 @@ typedef struct
     debug_command_integration_output_t output;
     debug_command_handler_context_t handler_context;
     uint32_t executed_command_count;
+    uint32_t delay_call_count;
+    uint32_t last_delay_ms;
 } debug_command_integration_context_t;
 
 static const pca9685_device_t test_device = {
@@ -160,6 +162,14 @@ static const debug_command_handler_io_t test_handler_io = {
     .write_prompt = test_write_prompt,
 };
 
+static void integration_delay_ms(void *context, uint32_t delay_ms)
+{
+    debug_command_integration_context_t *test_context = (debug_command_integration_context_t *)context;
+
+    test_context->delay_call_count++;
+    test_context->last_delay_ms = delay_ms;
+}
+
 static void shell_execute_command(void *context, const char *command_line)
 {
     debug_command_integration_context_t *test_context = (debug_command_integration_context_t *)context;
@@ -180,6 +190,14 @@ static void reset_test_context(debug_command_integration_context_t *context)
     context->output.output[0] = '\0';
     context->output.output_length = 0U;
     context->executed_command_count = 0U;
+    context->delay_call_count = 0U;
+    context->last_delay_ms = 0U;
+    context->handler_context.robot_ready = false;
+    context->handler_context.robot = 0;
+    context->handler_context.recover_robot = 0;
+    context->handler_context.recover_context = 0;
+    context->handler_context.delay_ms = 0;
+    context->handler_context.delay_context = 0;
 }
 
 static void feed_text(
@@ -215,6 +233,7 @@ static bool test_help_command_runs_through_shell_and_handler(void)
         "HELP\r\n"
         "HOME\r\n"
         "POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n"
+        "POSE_DELAY <delay_s> <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n"
         "STATUS\r\n"
         "> ",
         context.output.output);
@@ -281,25 +300,25 @@ static bool test_pose_and_status_run_through_shell_handler_and_robot(void)
     pca9685_fake_reset();
     fake_state = pca9685_fake_state();
 
-    feed_text(&shell, &context, "POSE 10 -10 20 -15 30 10\rSTATUS\r");
+    feed_text(&shell, &context, "POSE 10 30 20 -15 30 10\rSTATUS\r");
 
     TEST_ASSERT_UINT32_EQUAL(2U, context.executed_command_count);
     TEST_ASSERT_UINT32_EQUAL((uint32_t)ROBOT_ARM_JOINT_COUNT, fake_state->call_count);
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(10.0f), current_pose.base_rad);
-    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(-10.0f), current_pose.shoulder_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(30.0f), current_pose.shoulder_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(20.0f), current_pose.elbow_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(-15.0f), current_pose.wrist_tilt_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(30.0f), current_pose.wrist_rotate_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(10.0f), current_pose.gripper_rad);
     TEST_ASSERT_STRING_EQUAL(
-        "POSE 10 -10 20 -15 30 10\r\n"
+        "POSE 10 30 20 -15 30 10\r\n"
         "OK POSE\r\n"
         "> "
         "STATUS\r\n"
         "STATUS\r\n"
         "base=10 deg\r\n"
-        "shoulder=-10 deg\r\n"
+        "shoulder=30 deg\r\n"
         "elbow=20 deg\r\n"
         "wrist_tilt=-15 deg\r\n"
         "wrist_rotate=30 deg\r\n"
@@ -327,7 +346,7 @@ static bool test_home_runs_through_shell_handler_and_robot(void)
     pca9685_fake_reset();
     fake_state = pca9685_fake_state();
 
-    feed_text(&shell, &context, "POSE 10 -10 20 -15 30 10\rHOME\r");
+    feed_text(&shell, &context, "POSE 10 30 20 -15 30 10\rHOME\r");
 
     TEST_ASSERT_UINT32_EQUAL(2U, context.executed_command_count);
     TEST_ASSERT_UINT32_EQUAL((uint32_t)(ROBOT_ARM_JOINT_COUNT * 2U), fake_state->call_count);
@@ -339,11 +358,62 @@ static bool test_home_runs_through_shell_handler_and_robot(void)
     TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.wrist_rotate_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(20.0f), current_pose.gripper_rad);
     TEST_ASSERT_STRING_EQUAL(
-        "POSE 10 -10 20 -15 30 10\r\n"
+        "POSE 10 30 20 -15 30 10\r\n"
         "OK POSE\r\n"
         "> "
         "HOME\r\n"
         "OK HOME\r\n"
+        "> ",
+        context.output.output);
+    return true;
+}
+
+static bool test_pose_delay_runs_through_shell_handler_and_robot(void)
+{
+    debug_command_shell_t shell;
+    debug_command_integration_context_t context;
+    robot_arm_t robot;
+    robot_arm_pose_t current_pose;
+    pca9685_fake_state_t *fake_state;
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
+
+    debug_command_shell_init(&shell);
+    reset_test_context(&context);
+    context.handler_context.robot_ready = true;
+    context.handler_context.robot = &robot;
+    context.handler_context.delay_ms = integration_delay_ms;
+    context.handler_context.delay_context = &context;
+
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+
+    feed_text(&shell, &context, "POSE_DELAY 3 10 30 20 -15 30 10\rSTATUS\r");
+
+    TEST_ASSERT_UINT32_EQUAL(2U, context.executed_command_count);
+    TEST_ASSERT_UINT32_EQUAL(1U, context.delay_call_count);
+    TEST_ASSERT_UINT32_EQUAL(3000U, context.last_delay_ms);
+    TEST_ASSERT_UINT32_EQUAL((uint32_t)ROBOT_ARM_JOINT_COUNT, fake_state->call_count);
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(10.0f), current_pose.base_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(30.0f), current_pose.shoulder_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(20.0f), current_pose.elbow_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(-15.0f), current_pose.wrist_tilt_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(30.0f), current_pose.wrist_rotate_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_INTEGRATION_DEG_TO_RAD(10.0f), current_pose.gripper_rad);
+    TEST_ASSERT_STRING_EQUAL(
+        "POSE_DELAY 3 10 30 20 -15 30 10\r\n"
+        "WAIT POSE 3 s\r\n"
+        "OK POSE_DELAY\r\n"
+        "> "
+        "STATUS\r\n"
+        "STATUS\r\n"
+        "base=10 deg\r\n"
+        "shoulder=30 deg\r\n"
+        "elbow=20 deg\r\n"
+        "wrist_tilt=-15 deg\r\n"
+        "wrist_rotate=30 deg\r\n"
+        "gripper=10 deg\r\n"
         "> ",
         context.output.output);
     return true;
@@ -374,6 +444,11 @@ int main(void)
     }
 
     if (!test_home_runs_through_shell_handler_and_robot())
+    {
+        failed_count++;
+    }
+
+    if (!test_pose_delay_runs_through_shell_handler_and_robot())
     {
         failed_count++;
     }

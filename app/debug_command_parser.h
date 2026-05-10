@@ -52,4 +52,17 @@ bool debug_command_parser_parse_signed_int32_token(const char **cursor, int32_t 
  */
 bool debug_command_parser_parse_pose_arguments(const char *arguments, robot_arm_pose_t *pose);
 
+/**
+ * @brief  Parse one delayed POSE argument list in seconds plus six joint angles in degrees
+ * @param  arguments: argument substring following the POSE_DELAY command
+ * @param  delay_seconds: destination for the parsed delay in seconds
+ * @param  pose: destination for the parsed pose in radians
+ * @retval true: delay and pose parsed successfully
+ * @retval false: arguments missing, malformed, or incomplete
+ */
+bool debug_command_parser_parse_delayed_pose_arguments(
+    const char *arguments,
+    uint32_t *delay_seconds,
+    robot_arm_pose_t *pose);
+
 #endif

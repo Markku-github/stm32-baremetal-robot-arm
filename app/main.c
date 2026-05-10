@@ -83,7 +83,7 @@ int main(void)
 
     for (;;)
     {
-        debug_command_runtime_process_input(debug_uart_rx_ready, robot_ready, &robot);
+        debug_command_runtime_process_input(debug_uart_rx_ready, robot_ready, &robot, &pca9685_device);
         boot_delay(MAIN_LOOP_DELAY_CYCLES);
 
         led_tick_counter++;

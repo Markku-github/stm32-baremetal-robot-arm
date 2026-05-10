@@ -209,3 +209,27 @@ bool debug_command_parser_parse_pose_arguments(const char *arguments, robot_arm_
 
     return true;
 }
+
+bool debug_command_parser_parse_delayed_pose_arguments(
+    const char *arguments,
+    uint32_t *delay_seconds,
+    robot_arm_pose_t *pose)
+{
+    const char *cursor = arguments;
+    int32_t parsed_delay_seconds;
+
+    if ((arguments == 0) || (delay_seconds == 0) || (pose == 0))
+    {
+        return false;
+    }
+
+    if (!debug_command_parser_parse_signed_int32_token(&cursor, &parsed_delay_seconds)
+        || (parsed_delay_seconds < 0)
+        || !debug_command_parser_parse_pose_arguments(cursor, pose))
+    {
+        return false;
+    }
+
+    *delay_seconds = (uint32_t)parsed_delay_seconds;
+    return true;
+}
