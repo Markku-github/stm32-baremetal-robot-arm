@@ -10,6 +10,12 @@
 #include "robot_arm.h"
 
 #define ROBOT_ARM_DEGREES_TO_RADIANS 0.01745329251994329577f
+#define ROBOT_ARM_SHOULDER_MID_ANGLE_RAD (90.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
+#define ROBOT_ARM_SHOULDER_SAFE_MIN_PULSE_US 1200U
+#define ROBOT_ARM_SHOULDER_SAFE_MID_PULSE_US 2300U
+#define ROBOT_ARM_SHOULDER_SAFE_MAX_PULSE_US 3200U
+#define ROBOT_ARM_ELBOW_SAFE_MIN_PULSE_US 900U
+#define ROBOT_ARM_ELBOW_SAFE_MAX_PULSE_US 1800U
 #define ROBOT_ARM_GRIPPER_SAFE_CLOSE_PULSE_US 2450U
 #define ROBOT_ARM_GRIPPER_SAFE_OPEN_PULSE_US 1700U
 
@@ -97,6 +103,105 @@ static robot_arm_status_t robot_arm_map_servo_status(servo_status_t status)
     return ROBOT_ARM_ERR_SERVO;
 }
 
+static robot_arm_status_t robot_arm_map_pca9685_status(pca9685_status_t status)
+{
+    if (status == PCA9685_OK)
+    {
+        return ROBOT_ARM_OK;
+    }
+
+    if ((status == PCA9685_ERR_INVALID_ARGUMENT) || (status == PCA9685_ERR_STATE))
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+    }
+
+    return ROBOT_ARM_ERR_SERVO;
+}
+
+static uint16_t robot_arm_interpolate_pulse_us(
+    float angle_rad,
+    float minimum_angle_rad,
+    float maximum_angle_rad,
+    uint16_t minimum_pulse_width_us,
+    uint16_t maximum_pulse_width_us)
+{
+    float normalized_position;
+    float pulse_width_f;
+    float pulse_low_us;
+    float pulse_high_us;
+
+    normalized_position = (angle_rad - minimum_angle_rad) / (maximum_angle_rad - minimum_angle_rad);
+    pulse_width_f = (float)minimum_pulse_width_us
+        + (normalized_position * ((float)maximum_pulse_width_us - (float)minimum_pulse_width_us));
+
+    pulse_low_us = (float)minimum_pulse_width_us;
+    if ((float)maximum_pulse_width_us < pulse_low_us)
+    {
+        pulse_low_us = (float)maximum_pulse_width_us;
+    }
+
+    pulse_high_us = (float)maximum_pulse_width_us;
+    if ((float)minimum_pulse_width_us > pulse_high_us)
+    {
+        pulse_high_us = (float)minimum_pulse_width_us;
+    }
+
+    if (pulse_width_f < pulse_low_us)
+    {
+        pulse_width_f = pulse_low_us;
+    }
+    else if (pulse_width_f > pulse_high_us)
+    {
+        pulse_width_f = pulse_high_us;
+    }
+
+    return (uint16_t)(pulse_width_f + 0.5f);
+}
+
+static robot_arm_status_t robot_arm_set_shoulder_angle_immediate(servo_t *servo, float angle_rad)
+{
+    float clamped_angle_rad;
+    uint16_t pulse_width_us;
+
+    if ((servo == 0) || (servo->device == 0))
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+    }
+
+    if (robot_arm_map_servo_status(servo_clamp_angle_rad(servo, angle_rad, &clamped_angle_rad)) != ROBOT_ARM_OK)
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+    }
+
+    if (clamped_angle_rad <= ROBOT_ARM_SHOULDER_MID_ANGLE_RAD)
+    {
+        pulse_width_us = robot_arm_interpolate_pulse_us(
+            clamped_angle_rad,
+            servo->minimum_angle_rad,
+            ROBOT_ARM_SHOULDER_MID_ANGLE_RAD,
+            servo->minimum_pulse_width_us,
+            ROBOT_ARM_SHOULDER_SAFE_MID_PULSE_US);
+    }
+    else
+    {
+        pulse_width_us = robot_arm_interpolate_pulse_us(
+            clamped_angle_rad,
+            ROBOT_ARM_SHOULDER_MID_ANGLE_RAD,
+            servo->maximum_angle_rad,
+            ROBOT_ARM_SHOULDER_SAFE_MID_PULSE_US,
+            servo->maximum_pulse_width_us);
+    }
+
+    if (robot_arm_map_pca9685_status(pca9685_set_channel_pulse_us(servo->device, servo->channel, pulse_width_us)) != ROBOT_ARM_OK)
+    {
+        return ROBOT_ARM_ERR_SERVO;
+    }
+
+    servo->current_angle_rad = clamped_angle_rad;
+    servo->target_angle_rad = clamped_angle_rad;
+    return ROBOT_ARM_OK;
+}
+
 /* Centralized joint calibration table for safe-range tuning during MVP bring-up. */
 static const robot_arm_joint_calibration_t robot_arm_default_joint_calibrations[ROBOT_ARM_JOINT_COUNT] = {
     {
@@ -112,22 +217,22 @@ static const robot_arm_joint_calibration_t robot_arm_default_joint_calibrations[
     {
         .name = "shoulder",
         .channel = 1U,
-        .minimum_angle_rad = -35.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
-        .maximum_angle_rad = 35.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
+        .minimum_angle_rad = 0.0f,
+        .maximum_angle_rad = 180.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
         .home_angle_rad = 0.0f,
         .offset_rad = 0.0f,
-        .pulse_width_at_min_angle_us = 1200U,
-        .pulse_width_at_max_angle_us = 1800U,
+        .pulse_width_at_min_angle_us = ROBOT_ARM_SHOULDER_SAFE_MIN_PULSE_US,
+        .pulse_width_at_max_angle_us = ROBOT_ARM_SHOULDER_SAFE_MAX_PULSE_US,
     },
     {
         .name = "elbow",
         .channel = 2U,
-        .minimum_angle_rad = -45.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
+        .minimum_angle_rad = -60.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
         .maximum_angle_rad = 45.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
         .home_angle_rad = 0.0f,
         .offset_rad = 0.0f,
-        .pulse_width_at_min_angle_us = 1200U,
-        .pulse_width_at_max_angle_us = 1800U,
+        .pulse_width_at_min_angle_us = ROBOT_ARM_ELBOW_SAFE_MIN_PULSE_US,
+        .pulse_width_at_max_angle_us = ROBOT_ARM_ELBOW_SAFE_MAX_PULSE_US,
     },
     {
         .name = "wrist_tilt",
@@ -270,10 +375,21 @@ robot_arm_status_t robot_arm_set_pose_immediate(robot_arm_t *robot, const robot_
     for (joint_index = 0U; joint_index < (uint8_t)ROBOT_ARM_JOINT_COUNT; joint_index++)
     {
         const robot_arm_joint_id_t joint_id = (robot_arm_joint_id_t)joint_index;
-        const robot_arm_status_t status = robot_arm_map_servo_status(
-            servo_set_angle_immediate_rad(
+        robot_arm_status_t status;
+
+        if (joint_id == ROBOT_ARM_JOINT_SHOULDER)
+        {
+            status = robot_arm_set_shoulder_angle_immediate(
                 &robot->servos[joint_index],
-                robot_arm_pose_joint_angle(pose, joint_id)));
+                robot_arm_pose_joint_angle(pose, joint_id));
+        }
+        else
+        {
+            status = robot_arm_map_servo_status(
+                servo_set_angle_immediate_rad(
+                    &robot->servos[joint_index],
+                    robot_arm_pose_joint_angle(pose, joint_id)));
+        }
 
         if (status != ROBOT_ARM_OK)
         {
