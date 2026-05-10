@@ -154,6 +154,36 @@ static bool test_parse_pose_arguments_rejects_incomplete_or_extra_input(void)
     return true;
 }
 
+static bool test_parse_delayed_pose_arguments_accepts_delay_and_pose(void)
+{
+    robot_arm_pose_t pose;
+    uint32_t delay_seconds = 0U;
+
+    TEST_ASSERT_TRUE(debug_command_parser_parse_delayed_pose_arguments(" 3 10 20 -10 5 -15 10 ", &delay_seconds, &pose));
+    TEST_ASSERT_INT_EQUAL(3, (int32_t)delay_seconds);
+    TEST_ASSERT_FLOAT_CLOSE(COMMAND_PARSER_DEG_TO_RAD(10.0f), pose.base_rad);
+    TEST_ASSERT_FLOAT_CLOSE(COMMAND_PARSER_DEG_TO_RAD(20.0f), pose.shoulder_rad);
+    TEST_ASSERT_FLOAT_CLOSE(COMMAND_PARSER_DEG_TO_RAD(-10.0f), pose.elbow_rad);
+    TEST_ASSERT_FLOAT_CLOSE(COMMAND_PARSER_DEG_TO_RAD(5.0f), pose.wrist_tilt_rad);
+    TEST_ASSERT_FLOAT_CLOSE(COMMAND_PARSER_DEG_TO_RAD(-15.0f), pose.wrist_rotate_rad);
+    TEST_ASSERT_FLOAT_CLOSE(COMMAND_PARSER_DEG_TO_RAD(10.0f), pose.gripper_rad);
+    return true;
+}
+
+static bool test_parse_delayed_pose_arguments_rejects_invalid_input(void)
+{
+    robot_arm_pose_t pose;
+    uint32_t delay_seconds = 0U;
+
+    TEST_ASSERT_FALSE(debug_command_parser_parse_delayed_pose_arguments("-1 10 20 30 40 50 60", &delay_seconds, &pose));
+    TEST_ASSERT_FALSE(debug_command_parser_parse_delayed_pose_arguments("3 10 20 30", &delay_seconds, &pose));
+    TEST_ASSERT_FALSE(debug_command_parser_parse_delayed_pose_arguments("3 10 20 30 40 50 60 70", &delay_seconds, &pose));
+    TEST_ASSERT_FALSE(debug_command_parser_parse_delayed_pose_arguments(0, &delay_seconds, &pose));
+    TEST_ASSERT_FALSE(debug_command_parser_parse_delayed_pose_arguments("3 10 20 30 40 50 60", 0, &pose));
+    TEST_ASSERT_FALSE(debug_command_parser_parse_delayed_pose_arguments("3 10 20 30 40 50 60", &delay_seconds, 0));
+    return true;
+}
+
 int main(void)
 {
     const struct
@@ -167,6 +197,8 @@ int main(void)
         { "parse_signed_int32_token_rejects_invalid_tokens", test_parse_signed_int32_token_rejects_invalid_tokens },
         { "parse_pose_arguments_accepts_complete_pose", test_parse_pose_arguments_accepts_complete_pose },
         { "parse_pose_arguments_rejects_incomplete_or_extra_input", test_parse_pose_arguments_rejects_incomplete_or_extra_input },
+        { "parse_delayed_pose_arguments_accepts_delay_and_pose", test_parse_delayed_pose_arguments_accepts_delay_and_pose },
+        { "parse_delayed_pose_arguments_rejects_invalid_input", test_parse_delayed_pose_arguments_rejects_invalid_input },
     };
     unsigned int test_index;
     unsigned int failed_count = 0U;

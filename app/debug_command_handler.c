@@ -10,6 +10,7 @@
 #include "debug_command_parser.h"
 
 #define DEBUG_COMMAND_HANDLER_RADIANS_TO_DEGREES 57.2957795130823208768f
+#define DEBUG_COMMAND_HANDLER_MAX_POSE_DELAY_SECONDS 30U
 
 static bool debug_command_handler_has_valid_io(const debug_command_handler_io_t *io)
 {
@@ -103,7 +104,18 @@ static void debug_command_handler_write_help_text(const debug_command_handler_io
     io->write_string(io_context, "HELP\r\n");
     io->write_string(io_context, "HOME\r\n");
     io->write_string(io_context, "POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n");
+    io->write_string(io_context, "POSE_DELAY <delay_s> <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n");
     io->write_string(io_context, "STATUS\r\n");
+}
+
+static void debug_command_handler_write_pose_delay_notice(
+    const debug_command_handler_io_t *io,
+    void *io_context,
+    uint32_t delay_seconds)
+{
+    io->write_string(io_context, "WAIT POSE ");
+    debug_command_handler_write_unsigned_decimal(io, io_context, delay_seconds);
+    io->write_string(io_context, " s\r\n");
 }
 
 static void debug_command_handler_write_command_ok(
@@ -136,6 +148,73 @@ static void debug_command_handler_write_status_text(
     debug_command_handler_write_joint_status_line(io, io_context, "wrist_tilt", pose.wrist_tilt_rad);
     debug_command_handler_write_joint_status_line(io, io_context, "wrist_rotate", pose.wrist_rotate_rad);
     debug_command_handler_write_joint_status_line(io, io_context, "gripper", pose.gripper_rad);
+}
+
+static bool debug_command_handler_try_recover_robot(const debug_command_handler_context_t *command_context)
+{
+    return (command_context != 0)
+        && (command_context->robot != 0)
+        && (command_context->recover_robot != 0)
+        && command_context->recover_robot(command_context->recover_context, command_context->robot);
+}
+
+static bool debug_command_handler_has_delay_support(const debug_command_handler_context_t *command_context)
+{
+    return (command_context != 0) && (command_context->delay_ms != 0);
+}
+
+static void debug_command_handler_wait_before_pose(
+    const debug_command_handler_context_t *command_context,
+    uint32_t delay_seconds)
+{
+    if ((command_context == 0) || (command_context->delay_ms == 0))
+    {
+        return;
+    }
+
+    command_context->delay_ms(command_context->delay_context, delay_seconds * 1000U);
+}
+
+static bool debug_command_handler_execute_home_with_recovery(const debug_command_handler_context_t *command_context)
+{
+    if ((command_context == 0) || (command_context->robot == 0))
+    {
+        return false;
+    }
+
+    if (robot_arm_home(command_context->robot) == ROBOT_ARM_OK)
+    {
+        return true;
+    }
+
+    if (!debug_command_handler_try_recover_robot(command_context))
+    {
+        return false;
+    }
+
+    return robot_arm_home(command_context->robot) == ROBOT_ARM_OK;
+}
+
+static bool debug_command_handler_execute_pose_with_recovery(
+    const debug_command_handler_context_t *command_context,
+    const robot_arm_pose_t *pose)
+{
+    if ((command_context == 0) || (command_context->robot == 0) || (pose == 0))
+    {
+        return false;
+    }
+
+    if (robot_arm_set_pose_immediate(command_context->robot, pose) == ROBOT_ARM_OK)
+    {
+        return true;
+    }
+
+    if (!debug_command_handler_try_recover_robot(command_context))
+    {
+        return false;
+    }
+
+    return robot_arm_set_pose_immediate(command_context->robot, pose) == ROBOT_ARM_OK;
 }
 
 void debug_command_handler_execute(
@@ -203,7 +282,7 @@ void debug_command_handler_execute(
         {
             io->write_string(io_context, "ERR CONTROLLER_NOT_READY\r\n");
         }
-        else if (robot_arm_home(robot) != ROBOT_ARM_OK)
+        else if (!debug_command_handler_execute_home_with_recovery(command_context))
         {
             io->write_string(io_context, "ERR COMMAND_FAILED\r\n");
         }
@@ -228,13 +307,50 @@ void debug_command_handler_execute(
         {
             io->write_string(io_context, "ERR INVALID_ARGUMENT\r\n");
         }
-        else if (robot_arm_set_pose_immediate(robot, &pose) != ROBOT_ARM_OK)
+        else if (!debug_command_handler_execute_pose_with_recovery(command_context, &pose))
         {
             io->write_string(io_context, "ERR COMMAND_FAILED\r\n");
         }
         else
         {
             debug_command_handler_write_command_ok(io, io_context, "POSE");
+        }
+
+        io->write_prompt(io_context);
+        return;
+    }
+
+    if (debug_command_parser_matches_name_with_arguments(command_line, "POSE_DELAY", &arguments))
+    {
+        robot_arm_pose_t pose;
+        uint32_t delay_seconds = 0U;
+
+        if (!robot_ready || (robot == 0))
+        {
+            io->write_string(io_context, "ERR CONTROLLER_NOT_READY\r\n");
+        }
+        else if (!debug_command_handler_has_delay_support(command_context))
+        {
+            io->write_string(io_context, "ERR COMMAND_FAILED\r\n");
+        }
+        else if (!debug_command_parser_parse_delayed_pose_arguments(arguments, &delay_seconds, &pose)
+            || (delay_seconds > DEBUG_COMMAND_HANDLER_MAX_POSE_DELAY_SECONDS))
+        {
+            io->write_string(io_context, "ERR INVALID_ARGUMENT\r\n");
+        }
+        else
+        {
+            debug_command_handler_write_pose_delay_notice(io, io_context, delay_seconds);
+            debug_command_handler_wait_before_pose(command_context, delay_seconds);
+
+            if (!debug_command_handler_execute_pose_with_recovery(command_context, &pose))
+            {
+                io->write_string(io_context, "ERR COMMAND_FAILED\r\n");
+            }
+            else
+            {
+                debug_command_handler_write_command_ok(io, io_context, "POSE_DELAY");
+            }
         }
 
         io->write_prompt(io_context);
