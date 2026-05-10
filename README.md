@@ -21,7 +21,7 @@ The current firmware baseline currently includes:
 - servo abstraction on top of the PCA9685 driver
 - conservative six-servo robot baseline with HOME and direct-pose support
 - boot-time robot HOME and direct-pose integration self-tests with register readback validation
-- UART commands for `HELP`, `HOME`, `POSE`, and `STATUS`
+- UART commands for `HELP`, `HOME`, `POSE`, `POSE_DELAY`, and `STATUS`
 - host-native automated unit-test harness with CMake/CTest for servo logic
 
 ## Current UART command set
@@ -29,7 +29,19 @@ The current firmware baseline currently includes:
 - `HELP`
 - `HOME`
 - `POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>`
+- `POSE_DELAY <delay_s> <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>`
 - `STATUS`
+
+## Current calibration anchors
+
+The current robot-level calibration accepted for the MVP firmware is:
+
+- base: `0..90 deg` mapped to `600..1800 us`
+- shoulder: piecewise `0..180 deg` with `0 deg -> 1200 us`, `90 deg -> 2300 us`, `180 deg -> 3200 us`
+- elbow: `0..180 deg` mapped to `450..2500 us`, with HOME reported near `103 deg` to preserve the currently accepted physical HOME pose
+- gripper: `0..20 deg` mapped to `2450..1700 us` with reversed pulse endpoints for the current mechanism orientation
+
+For later bring-up on similar servos in this same arm platform, these pulse windows are useful conservative starting points rather than universal limits. Current probing also established that pushing the elbow below `450 us` made the servo go limp on this mechanism; both `400 us` and `350 us` were rejected.
 
 ## Hardware baseline
 
