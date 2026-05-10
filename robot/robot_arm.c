@@ -102,11 +102,11 @@ static const robot_arm_joint_calibration_t robot_arm_default_joint_calibrations[
     {
         .name = "base",
         .channel = 0U,
-        .minimum_angle_rad = -45.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
-        .maximum_angle_rad = 45.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
+        .minimum_angle_rad = 0.0f,
+        .maximum_angle_rad = 90.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
         .home_angle_rad = 0.0f,
         .offset_rad = 0.0f,
-        .pulse_width_at_min_angle_us = 1200U,
+        .pulse_width_at_min_angle_us = 600U,
         .pulse_width_at_max_angle_us = 1800U,
     },
     {
