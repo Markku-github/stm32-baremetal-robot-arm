@@ -51,6 +51,46 @@ Use tag names in the form `vMAJOR.MINOR.PATCH`.
 
 Patch numbers are not used for every commit. They exist for occasional post-baseline correction releases, not for day-to-day development history.
 
+### Practical interpretation for this repository
+
+- `v0.1.0` is the expected MVP closeout baseline.
+- Later pre-`1.0.0` milestones should normally advance the minor number rather than the patch number when they add a substantial new capability baseline.
+- `v1.0.0` should mean that the planned V1 scope is intentionally declared complete, not merely that one large feature landed.
+- `v2.0.0` should follow the same logic for the V2 scope.
+
+Examples:
+
+- tag `v0.2.0` after V1 work has advanced enough to create a clearly stronger baseline than MVP, even if V1 is not fully complete yet
+- tag `v0.3.0` after another similarly meaningful baseline in the same pre-`1.0.0` line
+- tag `v0.1.1` only if the already-declared MVP baseline needs a small corrective follow-up without redefining the baseline as a new milestone
+
+### When to use a patch version
+
+Use a patch tag when all of the following are true:
+
+- the repository already has a milestone tag that people may rely on
+- the new work is mainly corrective rather than a new phase or major capability step
+- the intent is to preserve the same baseline identity while improving its correctness or completeness
+
+Typical patch-tag cases include:
+
+- a bug fix found shortly after a milestone tag
+- a correction to validation or build wiring that does not materially change the project phase
+- a narrowly scoped post-baseline documentation or packaging correction when it matters to the released baseline
+
+Do not use a patch tag just because another commit was made. Most commits after a tag should remain ordinary history until there is a concrete reason to publish a corrected baseline.
+
+### When not to create a tag
+
+Do not create a new version tag for:
+
+- ordinary in-progress feature commits
+- every branch merge into `main`
+- documentation-only cleanup that does not change the declared baseline
+- intermediate states that are useful for development but not worth treating as a durable reference point
+
+If a change matters enough that future work, reports, or validation notes should refer to it as a named baseline, tagging is appropriate. If it does not meet that bar, an ordinary merge commit is enough.
+
 ## Tag and release flow
 
 1. Merge the accepted branch work into `main`.
@@ -58,6 +98,18 @@ Patch numbers are not used for every commit. They exist for occasional post-base
 3. Create an annotated tag from that `main` commit, for example `git tag -a v0.1.0 -m "MVP closeout baseline"`.
 4. Push the updated `main` branch and the new tag to the remote.
 5. If the tag marks a milestone baseline, create a GitHub release from that tag with concise notes covering delivered scope, validation performed, remaining justified limits, and the next planned phase.
+
+### Release-note content guidance
+
+For milestone releases, keep the release notes concise and factual. The notes should normally include:
+
+- what baseline the tag represents
+- the main delivered capabilities or completed phase scope
+- the validation summary at a high level
+- the most important known limits that still remain by design
+- the next intended project phase
+
+Release notes should summarize stable project state. They should not duplicate raw local logs or local-only planning notes.
 
 ## Branch naming guidance
 
