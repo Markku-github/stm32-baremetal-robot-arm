@@ -35,6 +35,7 @@ The current firmware baseline currently includes:
 - conservative six-servo robot baseline with HOME and direct-pose support
 - boot-time robot HOME and direct-pose integration self-tests with register readback validation
 - runtime robot auto-HOME after boot-time self-tests complete
+- repeatable MVP powered validation completed on the real target, with local evidence captured outside the tracked repository
 - UART commands for `HELP`, `HOME`, `POSE`, `POSE_DELAY`, and `STATUS`
 - host-native automated unit-test harness with CMake/CTest for servo logic
 

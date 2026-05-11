@@ -10,7 +10,7 @@ It is intentionally higher level than the local planning notes.
 
 The project has completed V0 bring-up and most of MVP direct-pose delivery.
 
-The current focus is closing the remaining MVP powered validation, final documentation sync, and closeout review work before opening V1.
+The current focus is closing the remaining MVP final documentation sync and closeout review work before opening V1.
 
 ## V0 - Bring-up and foundation
 
@@ -35,6 +35,7 @@ Completed:
 - ~~Accepted MVP HOME pose update and runtime startup auto-HOME~~
 - ~~Robot-specific calibration/config extraction into a dedicated robot-level module~~
 - ~~Tracked MVP validation coverage map and evidence boundary~~
+- ~~Repeatable powered validation execution with local external evidence capture~~
 - ~~UART command set: `HELP`, `HOME`, `POSE`, `POSE_DELAY`, `STATUS`~~
 - ~~Boot-time PCA9685 and robot integration self-tests~~
 - ~~Host-native unit and integration test harness~~
@@ -45,12 +46,10 @@ Completed:
 
 Current MVP closeout work:
 
-- repeatable powered validation execution and external evidence capture
-- final MVP closeout sync and broad review
+- final MVP documentation sync and broad review
 
 Remaining before MVP is considered closed:
 
-- perform repeatable powered validation and capture external evidence
 - sync final MVP docs and justified residual gaps
 - perform a final broad MVP review against the project rules and decisions
 
