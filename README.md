@@ -40,9 +40,10 @@ The current robot-level calibration accepted for the MVP firmware is:
 - shoulder: piecewise `0..180 deg` with `0 deg -> 1200 us`, `90 deg -> 2300 us`, `180 deg -> 3200 us`
 - elbow: `0..180 deg` mapped to `450..2500 us`, with HOME reported near `103 deg` to preserve the currently accepted physical HOME pose
 - wrist_tilt: `0..180 deg` mapped to `2800..600 us` with reversed pulse endpoints, with HOME reported at `90 deg` to preserve the currently accepted physical midpoint pose
+- wrist_rotate: `0..180 deg` mapped to `450..3000 us`, with HOME reported at `90 deg` to preserve the currently accepted physical midpoint pose
 - gripper: `0..20 deg` mapped to `2450..1700 us` with reversed pulse endpoints for the current mechanism orientation
 
-For later bring-up on similar servos in this same arm platform, these pulse windows are useful conservative starting points rather than universal limits. Current probing also established that pushing the elbow below `450 us` made the servo go limp on this mechanism; both `400 us` and `350 us` were rejected. Wrist-tilt probing on the reversed logical `0 deg` side remained stable through the currently accepted `2800 us` endpoint while preserving the accepted `600 us` logical `180 deg` side.
+For later bring-up on similar servos in this same arm platform, these pulse windows are useful conservative starting points rather than universal limits. Current probing also established that pushing the elbow below `450 us` made the servo go limp on this mechanism; both `400 us` and `350 us` were rejected. Wrist-tilt probing on the reversed logical `0 deg` side remained stable through the currently accepted `2800 us` endpoint while preserving the accepted `600 us` logical `180 deg` side. Wrist-rotate probing accepted the current wider `450..3000 us` physical band as sufficient for the MVP even though it is not treated as a perfect endpoint-calibrated final range.
 
 ## Hardware baseline
 
