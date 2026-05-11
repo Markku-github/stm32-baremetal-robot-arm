@@ -33,6 +33,7 @@ Completed:
 - ~~Generic servo abstraction~~
 - ~~Robot HOME and direct-pose baseline~~
 - ~~Accepted MVP HOME pose update and runtime startup auto-HOME~~
+- ~~Robot-specific calibration/config extraction into a dedicated robot-level module~~
 - ~~UART command set: `HELP`, `HOME`, `POSE`, `POSE_DELAY`, `STATUS`~~
 - ~~Boot-time PCA9685 and robot integration self-tests~~
 - ~~Host-native unit and integration test harness~~
@@ -43,13 +44,11 @@ Completed:
 
 Current MVP closeout work:
 
-- robot-specific calibration-module extraction from `robot_arm.c`
 - documented powered validation evidence
 - final MVP closeout sync and broad review
 
 Remaining before MVP is considered closed:
 
-- extract robot-specific calibration/config data into a dedicated robot-level module
 - perform repeatable powered validation and capture external evidence
 - sync final MVP docs and justified residual gaps
 - perform a final broad MVP review against the project rules and decisions

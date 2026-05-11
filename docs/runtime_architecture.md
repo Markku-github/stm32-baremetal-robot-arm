@@ -162,7 +162,7 @@ The STM32 side should focus on:
 
 ## Near-term application points
 
-The remaining MVP refactor work should preserve these boundaries while extracting robot-specific calibration data into a dedicated robot-level module.
+The current MVP baseline now keeps robot-specific calibration data in a dedicated robot-level module while leaving the generic servo layer free of robot-specific calibration tables.
 
 The larger runtime-timing evolution should happen with V1 smooth-motion work, where periodic timing semantics become part of the feature itself.
 
