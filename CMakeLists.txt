@@ -40,6 +40,7 @@ else()
         drivers/pca9685/pca9685.c
         drivers/servo/servo.c
         robot/robot_arm.c
+        robot/robot_arm_joint_calibration.c
         core/system_stm32f7xx.c
     )
 

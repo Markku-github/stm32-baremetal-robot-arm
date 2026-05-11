@@ -1,50 +1,14 @@
 /**
  ******************************************************************************
  * @file    robot_arm.c
- * @brief   Robot-level servo configuration and conservative baseline limits
+ * @brief   Robot-level direct-pose helpers built on the robot calibration module
  ******************************************************************************
  */
 
 #include <stdbool.h>
 
 #include "robot_arm.h"
-
-#define ROBOT_ARM_DEGREES_TO_RADIANS 0.01745329251994329577f
-#define ROBOT_ARM_BASE_HOME_ANGLE_RAD (90.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
-#define ROBOT_ARM_SHOULDER_MID_ANGLE_RAD (90.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
-#define ROBOT_ARM_SHOULDER_SAFE_MIN_PULSE_US 1200U
-#define ROBOT_ARM_SHOULDER_SAFE_MID_PULSE_US 2300U
-#define ROBOT_ARM_SHOULDER_SAFE_MAX_PULSE_US 3200U
-#define ROBOT_ARM_ELBOW_SAFE_MIN_ANGLE_RAD 0.0f
-#define ROBOT_ARM_ELBOW_SAFE_MAX_ANGLE_RAD (180.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
-#define ROBOT_ARM_ELBOW_HOME_ANGLE_RAD (180.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
-#define ROBOT_ARM_ELBOW_SAFE_MIN_PULSE_US 450U
-#define ROBOT_ARM_ELBOW_SAFE_MAX_PULSE_US 2500U
-#define ROBOT_ARM_WRIST_TILT_SAFE_MIN_ANGLE_RAD 0.0f
-#define ROBOT_ARM_WRIST_TILT_SAFE_MAX_ANGLE_RAD (180.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
-#define ROBOT_ARM_WRIST_TILT_HOME_ANGLE_RAD (180.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
-#define ROBOT_ARM_WRIST_TILT_SAFE_MIN_PULSE_US 2800U
-#define ROBOT_ARM_WRIST_TILT_SAFE_MAX_PULSE_US 600U
-#define ROBOT_ARM_WRIST_ROTATE_SAFE_MIN_ANGLE_RAD 0.0f
-#define ROBOT_ARM_WRIST_ROTATE_SAFE_MAX_ANGLE_RAD (180.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
-#define ROBOT_ARM_WRIST_ROTATE_HOME_ANGLE_RAD (90.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
-#define ROBOT_ARM_WRIST_ROTATE_SAFE_MIN_PULSE_US 450U
-#define ROBOT_ARM_WRIST_ROTATE_SAFE_MAX_PULSE_US 3000U
-#define ROBOT_ARM_GRIPPER_HOME_ANGLE_RAD 0.0f
-#define ROBOT_ARM_GRIPPER_SAFE_CLOSE_PULSE_US 2450U
-#define ROBOT_ARM_GRIPPER_SAFE_OPEN_PULSE_US 1700U
-
-typedef struct
-{
-    const char *name;
-    uint8_t channel;
-    float minimum_angle_rad;
-    float maximum_angle_rad;
-    float home_angle_rad;
-    float offset_rad;
-    uint16_t pulse_width_at_min_angle_us;
-    uint16_t pulse_width_at_max_angle_us;
-} robot_arm_joint_calibration_t;
+#include "robot_arm_joint_calibration.h"
 
 static bool robot_arm_is_valid_joint(robot_arm_joint_id_t joint_id)
 {
@@ -176,6 +140,8 @@ static uint16_t robot_arm_interpolate_pulse_us(
 static robot_arm_status_t robot_arm_set_shoulder_angle_immediate(servo_t *servo, float angle_rad)
 {
     float clamped_angle_rad;
+    const float shoulder_mid_angle_rad = robot_arm_joint_calibration_shoulder_mid_angle_rad();
+    const uint16_t shoulder_mid_pulse_us = robot_arm_joint_calibration_shoulder_mid_pulse_us();
     uint16_t pulse_width_us;
 
     if ((servo == 0) || (servo->device == 0))
@@ -188,22 +154,22 @@ static robot_arm_status_t robot_arm_set_shoulder_angle_immediate(servo_t *servo,
         return ROBOT_ARM_ERR_INVALID_ARGUMENT;
     }
 
-    if (clamped_angle_rad <= ROBOT_ARM_SHOULDER_MID_ANGLE_RAD)
+    if (clamped_angle_rad <= shoulder_mid_angle_rad)
     {
         pulse_width_us = robot_arm_interpolate_pulse_us(
             clamped_angle_rad,
             servo->minimum_angle_rad,
-            ROBOT_ARM_SHOULDER_MID_ANGLE_RAD,
+            shoulder_mid_angle_rad,
             servo->minimum_pulse_width_us,
-            ROBOT_ARM_SHOULDER_SAFE_MID_PULSE_US);
+            shoulder_mid_pulse_us);
     }
     else
     {
         pulse_width_us = robot_arm_interpolate_pulse_us(
             clamped_angle_rad,
-            ROBOT_ARM_SHOULDER_MID_ANGLE_RAD,
+            shoulder_mid_angle_rad,
             servo->maximum_angle_rad,
-            ROBOT_ARM_SHOULDER_SAFE_MID_PULSE_US,
+            shoulder_mid_pulse_us,
             servo->maximum_pulse_width_us);
     }
 
@@ -216,82 +182,6 @@ static robot_arm_status_t robot_arm_set_shoulder_angle_immediate(servo_t *servo,
     servo->target_angle_rad = clamped_angle_rad;
     return ROBOT_ARM_OK;
 }
-
-/* Centralized joint calibration table for safe-range tuning during MVP bring-up. */
-static const robot_arm_joint_calibration_t robot_arm_default_joint_calibrations[ROBOT_ARM_JOINT_COUNT] = {
-    {
-        .name = "base",
-        .channel = 0U,
-        .minimum_angle_rad = 0.0f,
-        .maximum_angle_rad = 90.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
-        .home_angle_rad = ROBOT_ARM_BASE_HOME_ANGLE_RAD,
-        .offset_rad = 0.0f,
-        .pulse_width_at_min_angle_us = 600U,
-        .pulse_width_at_max_angle_us = 1800U,
-    },
-    {
-        .name = "shoulder",
-        .channel = 1U,
-        .minimum_angle_rad = 0.0f,
-        .maximum_angle_rad = 180.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
-        .home_angle_rad = 0.0f,
-        .offset_rad = 0.0f,
-        .pulse_width_at_min_angle_us = ROBOT_ARM_SHOULDER_SAFE_MIN_PULSE_US,
-        .pulse_width_at_max_angle_us = ROBOT_ARM_SHOULDER_SAFE_MAX_PULSE_US,
-    },
-    {
-        .name = "elbow",
-        .channel = 2U,
-        .minimum_angle_rad = ROBOT_ARM_ELBOW_SAFE_MIN_ANGLE_RAD,
-        .maximum_angle_rad = ROBOT_ARM_ELBOW_SAFE_MAX_ANGLE_RAD,
-        .home_angle_rad = ROBOT_ARM_ELBOW_HOME_ANGLE_RAD,
-        .offset_rad = 0.0f,
-        .pulse_width_at_min_angle_us = ROBOT_ARM_ELBOW_SAFE_MIN_PULSE_US,
-        .pulse_width_at_max_angle_us = ROBOT_ARM_ELBOW_SAFE_MAX_PULSE_US,
-    },
-    {
-        .name = "wrist_tilt",
-        .channel = 3U,
-        .minimum_angle_rad = ROBOT_ARM_WRIST_TILT_SAFE_MIN_ANGLE_RAD,
-        .maximum_angle_rad = ROBOT_ARM_WRIST_TILT_SAFE_MAX_ANGLE_RAD,
-        .home_angle_rad = ROBOT_ARM_WRIST_TILT_HOME_ANGLE_RAD,
-        .offset_rad = 0.0f,
-        .pulse_width_at_min_angle_us = ROBOT_ARM_WRIST_TILT_SAFE_MIN_PULSE_US,
-        .pulse_width_at_max_angle_us = ROBOT_ARM_WRIST_TILT_SAFE_MAX_PULSE_US,
-    },
-    {
-        .name = "wrist_rotate",
-        .channel = 4U,
-        .minimum_angle_rad = ROBOT_ARM_WRIST_ROTATE_SAFE_MIN_ANGLE_RAD,
-        .maximum_angle_rad = ROBOT_ARM_WRIST_ROTATE_SAFE_MAX_ANGLE_RAD,
-        .home_angle_rad = ROBOT_ARM_WRIST_ROTATE_HOME_ANGLE_RAD,
-        .offset_rad = 0.0f,
-        .pulse_width_at_min_angle_us = ROBOT_ARM_WRIST_ROTATE_SAFE_MIN_PULSE_US,
-        .pulse_width_at_max_angle_us = ROBOT_ARM_WRIST_ROTATE_SAFE_MAX_PULSE_US,
-    },
-    {
-        .name = "gripper",
-        .channel = 5U,
-        .minimum_angle_rad = 0.0f,
-        .maximum_angle_rad = 20.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
-        .home_angle_rad = ROBOT_ARM_GRIPPER_HOME_ANGLE_RAD,
-        .offset_rad = 0.0f,
-        .pulse_width_at_min_angle_us = ROBOT_ARM_GRIPPER_SAFE_CLOSE_PULSE_US,
-        .pulse_width_at_max_angle_us = ROBOT_ARM_GRIPPER_SAFE_OPEN_PULSE_US,
-    },
-};
-
-static void robot_arm_build_servo_config(const robot_arm_joint_calibration_t *calibration, servo_config_t *config)
-{
-    config->name = calibration->name;
-    config->channel = calibration->channel;
-    config->minimum_angle_rad = calibration->minimum_angle_rad;
-    config->maximum_angle_rad = calibration->maximum_angle_rad;
-    config->offset_rad = calibration->offset_rad;
-    config->minimum_pulse_width_us = calibration->pulse_width_at_min_angle_us;
-    config->maximum_pulse_width_us = calibration->pulse_width_at_max_angle_us;
-}
-
 robot_arm_status_t robot_arm_init(robot_arm_t *robot, const pca9685_device_t *device)
 {
     uint8_t joint_index;
@@ -304,9 +194,14 @@ robot_arm_status_t robot_arm_init(robot_arm_t *robot, const pca9685_device_t *de
     for (joint_index = 0U; joint_index < (uint8_t)ROBOT_ARM_JOINT_COUNT; joint_index++)
     {
         servo_config_t servo_config;
-        const robot_arm_joint_calibration_t *calibration = &robot_arm_default_joint_calibrations[joint_index];
+        const robot_arm_joint_calibration_t *calibration = robot_arm_joint_calibration_get((robot_arm_joint_id_t)joint_index);
 
-        robot_arm_build_servo_config(calibration, &servo_config);
+        if (calibration == 0)
+        {
+            return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+        }
+
+        robot_arm_joint_calibration_build_servo_config(calibration, &servo_config);
 
         const robot_arm_status_t status = robot_arm_map_servo_status(
             servo_init(&robot->servos[joint_index], &servo_config, device));

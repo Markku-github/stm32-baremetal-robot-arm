@@ -24,6 +24,7 @@ add_executable(${DEBUG_COMMAND_HANDLER_UNIT_TEST_TARGET}
     ${CMAKE_SOURCE_DIR}/app/debug_command_parser.c
     ${CMAKE_SOURCE_DIR}/drivers/servo/servo.c
     ${CMAKE_SOURCE_DIR}/robot/robot_arm.c
+    ${CMAKE_SOURCE_DIR}/robot/robot_arm_joint_calibration.c
 )
 
 add_executable(${DEBUG_COMMAND_SHELL_UNIT_TEST_TARGET}
@@ -37,6 +38,7 @@ add_executable(${ROBOT_ARM_UNIT_TEST_TARGET}
     ${CMAKE_CURRENT_SOURCE_DIR}/fakes/pca9685_fake.c
     ${CMAKE_SOURCE_DIR}/drivers/servo/servo.c
     ${CMAKE_SOURCE_DIR}/robot/robot_arm.c
+    ${CMAKE_SOURCE_DIR}/robot/robot_arm_joint_calibration.c
 )
 
 add_executable(${ROBOT_STARTUP_UNIT_TEST_TARGET}
@@ -45,6 +47,7 @@ add_executable(${ROBOT_STARTUP_UNIT_TEST_TARGET}
     ${CMAKE_SOURCE_DIR}/app/robot_startup.c
     ${CMAKE_SOURCE_DIR}/drivers/servo/servo.c
     ${CMAKE_SOURCE_DIR}/robot/robot_arm.c
+    ${CMAKE_SOURCE_DIR}/robot/robot_arm_joint_calibration.c
 )
 
 add_executable(${DEBUG_COMMAND_INTEGRATION_TEST_TARGET}
@@ -55,6 +58,7 @@ add_executable(${DEBUG_COMMAND_INTEGRATION_TEST_TARGET}
     ${CMAKE_SOURCE_DIR}/app/debug_command_shell.c
     ${CMAKE_SOURCE_DIR}/drivers/servo/servo.c
     ${CMAKE_SOURCE_DIR}/robot/robot_arm.c
+    ${CMAKE_SOURCE_DIR}/robot/robot_arm_joint_calibration.c
 )
 
 target_include_directories(${SERVO_UNIT_TEST_TARGET} PRIVATE
