@@ -33,7 +33,7 @@ This automated baseline is required before merge, but it does not replace powere
 
 ## Manual MVP coverage map
 
-The current MVP closeout still requires real hardware validation for behavior that cannot be trusted from host-only automation alone.
+The current MVP baseline still depends on real hardware validation for behavior that cannot be trusted from host-only automation alone.
 
 ### Boot readiness
 
@@ -66,6 +66,21 @@ Evidence expectation:
 
 Detailed step-by-step operator procedures remain local-only material outside the tracked docs tree.
 
+## Latest summarized observed result
+
+One powered MVP validation run was completed on 2026-05-11 against `main` commit `04c7166` with local evidence captured outside the tracked repository.
+
+Summarized result:
+
+- boot self-tests and shell readiness passed
+- unpowered UART shell regression passed
+- powered startup-HOME, commanded `HOME`, and conservative `POSE 10 30 120 135 150 10` checks passed
+- no unexpected motion, chatter, hard-stop contact, or direction mismatch was reported in the local run summary
+
+Known limitation of that local summary:
+
+- the stored hardware note recorded the use of 5 V lab power, but fuller hardware configuration details were not captured in the summary text
+
 ## Evidence collection boundary
 
 Raw manual results, operator notes, UART captures, and other run artifacts must stay outside the tracked repository.
@@ -88,4 +103,6 @@ If the tested tree is later committed unchanged, add the resulting commit hash t
 
 This document provides the tracked high-level coverage map for MVP manual validation.
 
-MVP is still not considered closed until at least one repeatable powered validation run is executed on the real target and its local evidence is captured outside the tracked repository.
+At least one repeatable powered validation run has now been executed on the real target and its local evidence has been captured outside the tracked repository.
+
+Powered validation is therefore no longer the blocking MVP gap. The remaining MVP closeout work is the final tracked documentation sync and the final broad review.
