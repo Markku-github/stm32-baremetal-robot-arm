@@ -4,11 +4,9 @@
 
 This document defines the project-level testing architecture for the STM32 bare-metal robotic arm firmware. The goal is to make testing incremental, automatable where practical, and explicit about the remaining manual hardware checks.
 
-## Adoption point
+## Scope
 
-- The testing policy becomes active for new branches once the testing-policy documentation baseline is merged.
-- The already-open branch `feature/mvp-uart-commands` is intentionally exempt from retroactive unit-test requirements.
-- All later branches should follow the rules in this document unless an exception is explicitly documented in the branch itself.
+These rules apply to current and future branches unless a concrete exception is documented explicitly.
 
 ## Testing goals
 
@@ -16,6 +14,12 @@ This document defines the project-level testing architecture for the STM32 bare-
 - Prefer automated validation over manual validation whenever the project architecture allows it.
 - Preserve manual hardware validation for target-specific behavior that cannot yet be automated safely or economically.
 - Keep test evidence honest: distinguish unit, integration, system, and manual validation clearly.
+- Use the test pyramid as the default shape of the test suite.
+- Write tests in parallel with new features and refactors instead of deferring them to a later cleanup branch whenever practical.
+- Exercise behavior from regression, black-box, white-box, and grey-box perspectives where each view adds unique value.
+- Add boundary-value and error-path testing when the edited behavior has meaningful limits, clamps, retries, or failure handling.
+- Use fault-injection-style testing where repository seams make it practical, especially around driver failures, communication errors, and recovery paths.
+- Prefer meaningful coverage over duplicated tests that prove the same thing repeatedly.
 
 ## Test layers
 
@@ -36,6 +40,7 @@ Unit tests should:
 - be wired into an automated test command
 - stay narrow and behavior-focused
 - use the repository host-test harness under `tests/` with CMake/CTest integration
+- be added or updated in the same development slice as the behavior they cover when practical
 
 ### 2. Integration tests
 
@@ -62,6 +67,26 @@ System-test scope includes:
 
 System tests should be automated when a practical harness exists. Until then they may remain manual, but the procedure must be documented.
 
+## Current automated system-test status
+
+The repository currently does not contain automated system tests.
+
+That is a known limitation, not an implied hidden suite.
+
+The current MVP plan treats target-level system validation as manual because:
+
+- the project does not yet have a stable board-in-the-loop automation harness
+- powered motion validation still carries real hardware and safety constraints
+- the highest-value near-term work is still to close the remaining MVP refactor and validation slices cleanly
+
+Automated system tests are still considered possible in this project, but they depend on a practical harness for scripting target interaction, observing results reliably, and doing so safely.
+
+For MVP closeout, the plan is:
+
+- keep unit and integration automation as the main automated safety net
+- complete manual target-level system validation with documented procedures and observed results
+- revisit automated system-test investment after MVP if a stable harness becomes worth the complexity
+
 ### 4. Manual hardware tests
 
 Manual testing is acceptable when hardware dependencies or safety constraints make automation impractical.
@@ -82,13 +107,16 @@ Before a branch is closed, verify the following for the touched behavior:
 1. The firmware build is clean with the repository warning policy.
 2. Relevant unit tests were added or updated when practical.
 3. Relevant integration tests were added or updated when practical.
-4. Feasible system-level checks were run.
-5. If any required validation is still manual, the manual procedure and observed result are documented clearly.
-6. Remaining test gaps are called out explicitly instead of being implied away.
+4. The full automated test suite available in the current environment passed before merge.
+5. Feasible system-level checks were run.
+6. If any required validation is still manual, the manual procedure and observed result are documented clearly.
+7. Remaining test gaps are called out explicitly instead of being implied away.
 
 ## Coverage expectations
 
-Until quantitative coverage tooling exists, coverage review is qualitative and change-focused:
+Until quantitative coverage tooling exists, the repository does not have line-, branch-, or function-coverage percentages as an automated gate.
+
+Coverage review is therefore qualitative and change-focused:
 
 - inspect the changed behavior
 - identify the untested branches and error paths
@@ -107,16 +135,30 @@ The preferred automation path is:
 
 ## Recommended test tree
 
-The repository should grow toward this layout:
+The automated test tree should continue to grow toward this layout:
 
 - `tests/unit/`
 - `tests/integration/`
-- `tests/system/`
-- `docs/manual_tests/` or a clearly named equivalent manual-test location when procedures become numerous
+- `tests/system/` when an automated target-level harness becomes practical
+
+## Manual validation documentation policy
+
+Manual validation results and raw run logs do not belong in this repository.
+
+The current default is:
+
+- keep step-by-step operator procedures and raw observed results outside the tracked repository
+- keep repository-tracked documentation focused on policy, scope, and durable test guidance
+
+If the project later benefits from a tracked manual validation overview, keep it limited to a stable high-level case catalog or coverage map.
+
+Do not turn the tracked repository into a storage location for filled result templates, operator run logs, or raw manual evidence.
 
 ## Test result collection
 
-Generated test logs and local result artifacts should be collected under the ignored root directory `test_results/`.
+If test evidence is stored with this workspace, collect it under the ignored root directory `test_results/`.
+
+Equivalent evidence may also be stored in a separate external results location, but it still must not be committed to this repository.
 
 Use one run directory per test invocation, named as:
 
@@ -134,12 +176,17 @@ Each run directory should contain the raw logs and a short summary that identifi
 - which test set was executed
 - whether configure, build, and test phases passed or failed
 
-Generated logs under `test_results/` are local evidence and should not be committed to the repository. Only durable procedures, summarized observed results, and justified residual gaps belong in tracked documentation.
+If the tested tree is later committed unchanged, add the resulting commit hash to the summary as a convenience link between the local evidence and the tracked history.
 
-## Planned rollout after the current UART branch
+If the code changes after the recorded test run, rerun the tests instead of reusing the old result.
 
-1. Finish `feature/mvp-uart-commands` without retrofitting this policy onto that already-open branch.
-2. Create a dedicated test-harness branch to add host-native unit-test infrastructure and CTest wiring.
-3. Use that harness to support the planned app-layer refactor before V1 motion/state work expands the surface further.
-4. Add integration coverage for the command shell and robot-control seams as they stabilize.
-5. Build out system and manual test procedures as powered motion and higher-level control features are introduced.
+Generated test logs under `test_results/` are evidence that should be stored outside this repository. They must not be committed here.
+
+Tracked documentation may reference summarized observed results, durable procedures, or justified residual gaps, but the raw result storage belongs outside this repository.
+
+## Near-term testing priorities
+
+1. Keep the current host-native suite healthy and fast enough to run before every branch merge.
+2. Expand integration coverage around the robot and command seams as remaining MVP refactors land.
+3. Complete repeatable powered validation for MVP closeout.
+4. Add quantitative coverage tooling only after the current suite and workflow are stable.

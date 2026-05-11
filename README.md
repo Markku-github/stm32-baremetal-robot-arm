@@ -2,6 +2,18 @@
 
 This repository contains bare-metal firmware for an STM32 Nucleo-F767ZI based controller for a 5-DoF robotic arm with a separate gripper actuator. The codebase uses a command-line ARM GCC toolchain and direct register-level peripheral control.
 
+## Documentation
+
+Detailed project guidance is tracked under `docs/`:
+
+- [docs/README.md](docs/README.md)
+- [docs/runtime_architecture.md](docs/runtime_architecture.md)
+- [docs/testing_strategy.md](docs/testing_strategy.md)
+- [docs/development_workflow.md](docs/development_workflow.md)
+- [docs/git_workflow.md](docs/git_workflow.md)
+- [docs/documentation_guidelines.md](docs/documentation_guidelines.md)
+- [docs/roadmap.md](docs/roadmap.md)
+
 ## Current implementation status
 
 The current firmware baseline currently includes:
