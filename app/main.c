@@ -14,6 +14,7 @@
 #include "debug_command_runtime.h"
 #include "pca9685.h"
 #include "robot_arm.h"
+#include "robot_startup.h"
 
 #define MAIN_LOOP_DELAY_CYCLES 20000U
 #define MAIN_LED_TOGGLE_TICKS 100U
@@ -60,9 +61,17 @@ int main(void)
             boot_self_test_run_robot_home(debug_uart_ready, &pca9685_device);
             boot_self_test_run_robot_direct_pose(debug_uart_ready, &pca9685_device);
 
-            if (robot_arm_init(&robot, &pca9685_device) == ROBOT_ARM_OK)
+            const robot_startup_status_t robot_startup_status =
+                robot_startup_initialize_and_home(&robot, &pca9685_device);
+
+            if (robot_startup_status == ROBOT_STARTUP_OK)
             {
                 robot_ready = true;
+                board_nucleo_f767zi_write_debug_string("Robot runtime ready at HOME.\r\n");
+            }
+            else if (robot_startup_status == ROBOT_STARTUP_ERR_HOME)
+            {
+                board_nucleo_f767zi_write_debug_string("Robot startup HOME failed.\r\n");
             }
             else
             {

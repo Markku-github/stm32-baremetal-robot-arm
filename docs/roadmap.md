@@ -10,7 +10,7 @@ It is intentionally higher level than the local planning notes.
 
 The project has completed V0 bring-up and most of MVP direct-pose delivery.
 
-The current focus is closing the remaining MVP documentation, refactor, and validation work before opening V1.
+The current focus is closing the remaining MVP refactor, powered validation, and closeout review work before opening V1.
 
 ## V0 - Bring-up and foundation
 
@@ -32,16 +32,17 @@ Completed:
 - ~~PCA9685 PWM control and safe output-disable behavior~~
 - ~~Generic servo abstraction~~
 - ~~Robot HOME and direct-pose baseline~~
+- ~~Accepted MVP HOME pose update and runtime startup auto-HOME~~
 - ~~UART command set: `HELP`, `HOME`, `POSE`, `POSE_DELAY`, `STATUS`~~
 - ~~Boot-time PCA9685 and robot integration self-tests~~
 - ~~Host-native unit and integration test harness~~
 - ~~Command-shell and app-layer structural refactors~~
 - ~~Six-joint mechanism-specific calibration anchors for base, shoulder, elbow, wrist tilt, wrist rotate, and gripper~~
 - ~~README clarification for degrees, microseconds, and hertz~~
+- ~~Tracked governance and workflow documentation under `docs/`~~
 
 Current MVP closeout work:
 
-- public governance and workflow documentation under `docs/`
 - robot-specific calibration-module extraction from `robot_arm.c`
 - documented powered validation evidence
 - final MVP closeout sync and broad review
@@ -49,7 +50,6 @@ Current MVP closeout work:
 Remaining before MVP is considered closed:
 
 - extract robot-specific calibration/config data into a dedicated robot-level module
-- complete the remaining tracked governance and workflow docs
 - perform repeatable powered validation and capture external evidence
 - sync final MVP docs and justified residual gaps
 - perform a final broad MVP review against the project rules and decisions
