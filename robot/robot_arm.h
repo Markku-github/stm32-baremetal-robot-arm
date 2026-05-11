@@ -104,6 +104,21 @@ robot_arm_status_t robot_arm_get_home_pose(const robot_arm_t *robot, robot_arm_p
 robot_arm_status_t robot_arm_get_current_pose(const robot_arm_t *robot, robot_arm_pose_t *pose);
 
 /**
+ * @brief  Calculate the pulse width that one robot joint command would write through the current runtime mapping
+ * @param  robot: initialized robot descriptor
+ * @param  joint_id: logical joint identifier
+ * @param  angle_rad: requested logical angle in radians
+ * @param  pulse_width_us: destination for the resulting pulse width in microseconds
+ * @retval ROBOT_ARM_OK: pulse width calculated successfully
+ * @retval ROBOT_ARM_ERR_INVALID_ARGUMENT: robot, joint identifier, or output pointer invalid
+ */
+robot_arm_status_t robot_arm_calculate_joint_pulse_width_us(
+    const robot_arm_t *robot,
+    robot_arm_joint_id_t joint_id,
+    float angle_rad,
+    uint16_t *pulse_width_us);
+
+/**
  * @brief  Immediately apply a direct joint-space pose to all six robot servos
  * @param  robot: initialized robot descriptor
  * @param  pose: requested direct pose in radians

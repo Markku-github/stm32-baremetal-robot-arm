@@ -149,7 +149,7 @@ static robot_pose_readback_status_t write_robot_pose_off_counts(
         const servo_t *servo = robot_arm_get_servo_const(robot, joint_id);
 
         if ((servo == 0)
-            || (servo_angle_rad_to_pulse_us(servo, robot_pose_joint_angle(pose, joint_id), &pulse_width_us) != SERVO_OK)
+            || (robot_arm_calculate_joint_pulse_width_us(robot, joint_id, robot_pose_joint_angle(pose, joint_id), &pulse_width_us) != ROBOT_ARM_OK)
             || (pca9685_read_channel_pwm(device, servo->channel, &on_count, &off_count) != PCA9685_OK))
         {
             return ROBOT_POSE_READBACK_ERR_READ;
@@ -258,7 +258,7 @@ bool boot_self_test_run_pca9685(bool debug_uart_ready, pca9685_device_t *device)
     return true;
 }
 
-void boot_self_test_run_robot_home(bool debug_uart_ready, pca9685_device_t *device)
+bool boot_self_test_run_robot_home(bool debug_uart_ready, pca9685_device_t *device)
 {
     robot_arm_t robot;
     robot_arm_pose_t home_pose;
@@ -266,7 +266,7 @@ void boot_self_test_run_robot_home(bool debug_uart_ready, pca9685_device_t *devi
 
     if (!debug_uart_ready || (device == 0))
     {
-        return;
+        return false;
     }
 
     board_nucleo_f767zi_write_debug_string("Running robot HOME integration self-test...\r\n");
@@ -274,19 +274,19 @@ void boot_self_test_run_robot_home(bool debug_uart_ready, pca9685_device_t *devi
     if (robot_arm_init(&robot, device) != ROBOT_ARM_OK)
     {
         board_nucleo_f767zi_write_debug_string("Robot servo baseline init failed.\r\n");
-        return;
+        return false;
     }
 
     if (robot_arm_home(&robot) != ROBOT_ARM_OK)
     {
         report_robot_self_test_failure(device, "Robot HOME command failed.\r\n");
-        return;
+        return false;
     }
 
     if (robot_arm_get_home_pose(&robot, &home_pose) != ROBOT_ARM_OK)
     {
         report_robot_self_test_failure(device, "Robot HOME readback failed.\r\n");
-        return;
+        return false;
     }
 
     board_nucleo_f767zi_write_debug_string("Robot HOME OFF counts: ");
@@ -299,16 +299,16 @@ void boot_self_test_run_robot_home(bool debug_uart_ready, pca9685_device_t *devi
             readback_status,
             "Robot HOME readback failed.\r\n",
             "Robot HOME register readback mismatch.\r\n");
-        return;
+        return false;
     }
 
-    (void)finalize_robot_self_test(
+    return finalize_robot_self_test(
         device,
         "Robot HOME output disable failed after self-test.\r\n",
         "Robot HOME integration self-test OK. Outputs returned to the disabled state. External servo power is still not required for this register-level check.\r\n");
 }
 
-void boot_self_test_run_robot_direct_pose(bool debug_uart_ready, pca9685_device_t *device)
+bool boot_self_test_run_robot_direct_pose(bool debug_uart_ready, pca9685_device_t *device)
 {
     robot_arm_t robot;
     robot_arm_pose_t pose;
@@ -317,7 +317,7 @@ void boot_self_test_run_robot_direct_pose(bool debug_uart_ready, pca9685_device_
 
     if (!debug_uart_ready || (device == 0))
     {
-        return;
+        return false;
     }
 
     board_nucleo_f767zi_write_debug_string("Running robot direct pose integration self-test...\r\n");
@@ -325,7 +325,7 @@ void boot_self_test_run_robot_direct_pose(bool debug_uart_ready, pca9685_device_
     if (robot_arm_init(&robot, device) != ROBOT_ARM_OK)
     {
         board_nucleo_f767zi_write_debug_string("Robot servo baseline init failed for direct pose test.\r\n");
-        return;
+        return false;
     }
 
     build_robot_direct_pose(&pose);
@@ -333,13 +333,13 @@ void boot_self_test_run_robot_direct_pose(bool debug_uart_ready, pca9685_device_
     if (robot_arm_set_pose_immediate(&robot, &pose) != ROBOT_ARM_OK)
     {
         report_robot_self_test_failure(device, "Robot direct pose command failed.\r\n");
-        return;
+        return false;
     }
 
     if (robot_arm_get_current_pose(&robot, &current_pose) != ROBOT_ARM_OK)
     {
         report_robot_self_test_failure(device, "Robot current pose readback failed.\r\n");
-        return;
+        return false;
     }
 
     board_nucleo_f767zi_write_debug_string("Robot direct pose OFF counts: ");
@@ -352,10 +352,10 @@ void boot_self_test_run_robot_direct_pose(bool debug_uart_ready, pca9685_device_
             readback_status,
             "Robot direct pose readback failed.\r\n",
             "Robot direct pose register readback mismatch.\r\n");
-        return;
+        return false;
     }
 
-    (void)finalize_robot_self_test(
+    return finalize_robot_self_test(
         device,
         "Robot direct pose output disable failed after self-test.\r\n",
         "Robot direct pose integration self-test OK. Outputs returned to the disabled state. External servo power is still not required for this register-level check.\r\n");

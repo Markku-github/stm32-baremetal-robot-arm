@@ -93,22 +93,24 @@ For later bring-up on similar servos in this same arm platform, these pulse wind
 
 ## Windows PowerShell commands
 
+Preferred when local PowerShell policy allows direct repository-script invocation:
+
 Configure:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\configure.ps1
+.\scripts\configure.ps1
 ```
 
 Build:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
+.\scripts\build.ps1
 ```
 
 Run host-native automated tests:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
+.\scripts\test.ps1
 ```
 
 The host-test helper expects a Windows-native C compiler in `PATH` and intentionally rejects Cygwin toolchains.
@@ -116,17 +118,23 @@ The host-test helper expects a Windows-native C compiler in `PATH` and intention
 If needed, override the detected Windows host compiler explicitly by compiler name or explicit path:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1 -Compiler gcc.exe
+.\scripts\test.ps1 -Compiler gcc.exe
 ```
 
 List ST-LINK probes:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\flash.ps1 -ListProbes
+.\scripts\flash.ps1 -ListProbes
 ```
 
 Flash the current firmware through the onboard ST-LINK debugger:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\flash.ps1
+.\scripts\flash.ps1
+```
+
+If direct script invocation is blocked by the local PowerShell execution policy, use the explicit fallback form instead, for example:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
 ```

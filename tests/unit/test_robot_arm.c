@@ -294,6 +294,23 @@ static bool test_robot_arm_shoulder_uses_piecewise_pulse_range(void)
     return true;
 }
 
+static bool test_robot_arm_calculate_joint_pulse_width_uses_piecewise_shoulder_mapping(void)
+{
+    robot_arm_t robot;
+    uint16_t pulse_width_us = 0U;
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
+    TEST_ASSERT_INT_EQUAL(
+        ROBOT_ARM_OK,
+        robot_arm_calculate_joint_pulse_width_us(
+            &robot,
+            ROBOT_ARM_JOINT_SHOULDER,
+            ROBOT_ARM_TEST_DEG_TO_RAD(10.0f),
+            &pulse_width_us));
+    TEST_ASSERT_UINT16_EQUAL(1322U, pulse_width_us);
+    return true;
+}
+
 static bool test_robot_arm_set_pose_clamps_elbow_to_safe_limits(void)
 {
     robot_arm_t robot;
@@ -523,6 +540,7 @@ static bool test_robot_arm_validates_arguments(void)
     robot_arm_t robot;
     robot_arm_pose_t pose;
     float home_angle_rad;
+    uint16_t pulse_width_us;
 
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_init(0, &test_device));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_init(&robot, 0));
@@ -541,6 +559,9 @@ static bool test_robot_arm_validates_arguments(void)
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_get_home_pose(&robot, 0));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_get_current_pose(0, &pose));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_get_current_pose(&robot, 0));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_calculate_joint_pulse_width_us(0, ROBOT_ARM_JOINT_BASE, pose.base_rad, &pulse_width_us));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_calculate_joint_pulse_width_us(&robot, ROBOT_ARM_JOINT_COUNT, pose.base_rad, &pulse_width_us));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_calculate_joint_pulse_width_us(&robot, ROBOT_ARM_JOINT_BASE, pose.base_rad, 0));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_set_pose_immediate(0, &pose));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_set_pose_immediate(&robot, 0));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_ERR_INVALID_ARGUMENT, robot_arm_home(0));
@@ -559,6 +580,7 @@ int main(void)
         { "robot_arm_set_pose_clamps_base_to_safe_limits", test_robot_arm_set_pose_clamps_base_to_safe_limits },
         { "robot_arm_set_pose_clamps_shoulder_to_safe_limits", test_robot_arm_set_pose_clamps_shoulder_to_safe_limits },
         { "robot_arm_shoulder_uses_piecewise_pulse_range", test_robot_arm_shoulder_uses_piecewise_pulse_range },
+        { "robot_arm_calculate_joint_pulse_width_uses_piecewise_shoulder_mapping", test_robot_arm_calculate_joint_pulse_width_uses_piecewise_shoulder_mapping },
         { "robot_arm_set_pose_clamps_elbow_to_safe_limits", test_robot_arm_set_pose_clamps_elbow_to_safe_limits },
         { "robot_arm_elbow_uses_expanded_pulse_range", test_robot_arm_elbow_uses_expanded_pulse_range },
         { "robot_arm_set_pose_clamps_wrist_tilt_to_safe_limits", test_robot_arm_set_pose_clamps_wrist_tilt_to_safe_limits },

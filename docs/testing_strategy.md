@@ -77,14 +77,14 @@ The current MVP plan treats target-level system validation as manual because:
 
 - the project does not yet have a stable board-in-the-loop automation harness
 - powered motion validation still carries real hardware and safety constraints
-- the highest-value near-term work is still to close the remaining MVP refactor and validation slices cleanly
+- the highest-value next testing work is to preserve the current host suite and extend it around upcoming V1 runtime changes
 
 Automated system tests are still considered possible in this project, but they depend on a practical harness for scripting target interaction, observing results reliably, and doing so safely.
 
-For MVP closeout, the plan is:
+For the current post-closeout baseline, the plan is:
 
 - keep unit and integration automation as the main automated safety net
-- complete manual target-level system validation with documented procedures and observed results
+- keep manual target-level system validation documented with clear procedures and summarized observed results for the hardware-dependent checks that still matter
 - revisit automated system-test investment after MVP if a stable harness becomes worth the complexity
 
 ### 4. Manual hardware tests
@@ -187,6 +187,6 @@ Tracked documentation may reference summarized observed results, durable procedu
 ## Near-term testing priorities
 
 1. Keep the current host-native suite healthy and fast enough to run before every branch merge.
-2. Expand integration coverage around the robot and command seams as remaining MVP refactors land.
-3. Complete repeatable powered validation for MVP closeout.
-4. Add quantitative coverage tooling only after the current suite and workflow are stable.
+2. Expand integration coverage around the robot, command, and startup/self-test seams as V1 runtime work lands.
+3. Add targeted host-runnable tests around motion and state-handling behavior as those seams stabilize.
+4. Revisit quantitative coverage tooling and target-level automation only after the current suite and harness direction are stable.
