@@ -45,6 +45,14 @@ The current robot-level calibration accepted for the MVP firmware is:
 
 For later bring-up on similar servos in this same arm platform, these pulse windows are useful conservative starting points rather than universal limits. Current probing also established that pushing the elbow below `450 us` made the servo go limp on this mechanism; both `400 us` and `350 us` were rejected. Wrist-tilt probing on the reversed logical `0 deg` side remained stable through the currently accepted `2800 us` endpoint while preserving the accepted `600 us` logical `180 deg` side. Wrist-rotate probing accepted the current wider `450..3000 us` physical band as sufficient for the MVP even though it is not treated as a perfect endpoint-calibrated final range.
 
+## How to read angle, `us`, and `Hz` values
+
+- UART commands, status output, and operator-facing examples use degrees because that is the clearest unit for commanding joint poses.
+- Robot and servo calibration anchors use microseconds (`us`) because hobby-servo position is encoded by pulse width, not by changing the update frequency.
+- The PCA9685 driver uses hertz (`Hz`) for the shared PWM frame rate because that value configures how often the pulse frame repeats for all channels.
+- In practical terms, a typical servo frame of `50 Hz` is one `20 ms` cycle, and a command like `1500 us` means the signal stays high for `1.5 ms` inside each `20 ms` frame.
+- Because of that split, entries such as `450..3000 us` in the calibration table describe the accepted pulse-width window for one joint, while the PCA9685 frequency remains a separate board-level setting.
+
 ## Hardware baseline
 
 - target board: STM32 Nucleo-F767ZI
