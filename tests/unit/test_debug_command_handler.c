@@ -13,6 +13,8 @@
 #define DEBUG_COMMAND_HANDLER_TEST_ELBOW_POSE_RAD DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(120.0f)
 #define DEBUG_COMMAND_HANDLER_TEST_WRIST_TILT_HOME_RAD DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(90.0f)
 #define DEBUG_COMMAND_HANDLER_TEST_WRIST_TILT_POSE_RAD DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(135.0f)
+#define DEBUG_COMMAND_HANDLER_TEST_WRIST_ROTATE_HOME_RAD DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(90.0f)
+#define DEBUG_COMMAND_HANDLER_TEST_WRIST_ROTATE_POSE_RAD DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(150.0f)
 
 typedef struct
 {
@@ -176,7 +178,7 @@ static void fill_test_pose(robot_arm_pose_t *pose)
     pose->shoulder_rad = DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(30.0f);
     pose->elbow_rad = DEBUG_COMMAND_HANDLER_TEST_ELBOW_POSE_RAD;
     pose->wrist_tilt_rad = DEBUG_COMMAND_HANDLER_TEST_WRIST_TILT_POSE_RAD;
-    pose->wrist_rotate_rad = DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(30.0f);
+    pose->wrist_rotate_rad = DEBUG_COMMAND_HANDLER_TEST_WRIST_ROTATE_POSE_RAD;
     pose->gripper_rad = DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(10.0f);
 }
 
@@ -273,7 +275,7 @@ static bool test_status_reports_current_pose(void)
         "shoulder=30 deg\r\n"
         "elbow=120 deg\r\n"
         "wrist_tilt=135 deg\r\n"
-        "wrist_rotate=30 deg\r\n"
+        "wrist_rotate=150 deg\r\n"
         "gripper=10 deg\r\n"
         "> ",
         output.output);
@@ -295,7 +297,7 @@ static bool test_pose_command_updates_robot_and_reports_ok(void)
     pca9685_fake_reset();
     fake_state = pca9685_fake_state();
     reset_output(&output);
-    debug_command_handler_execute("POSE 10 30 120 135 30 10", &context, &test_handler_io, &output);
+    debug_command_handler_execute("POSE 10 30 120 135 150 10", &context, &test_handler_io, &output);
 
     TEST_ASSERT_STRING_EQUAL("OK POSE\r\n> ", output.output);
     TEST_ASSERT_UINT32_EQUAL((uint32_t)ROBOT_ARM_JOINT_COUNT, fake_state->call_count);
@@ -304,7 +306,7 @@ static bool test_pose_command_updates_robot_and_reports_ok(void)
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(30.0f), current_pose.shoulder_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_ELBOW_POSE_RAD, current_pose.elbow_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_TILT_POSE_RAD, current_pose.wrist_tilt_rad);
-    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(30.0f), current_pose.wrist_rotate_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_ROTATE_POSE_RAD, current_pose.wrist_rotate_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(10.0f), current_pose.gripper_rad);
     return true;
 }
@@ -328,7 +330,7 @@ static bool test_pose_command_recovers_from_single_servo_failure(void)
     fake_state = pca9685_fake_state();
     fake_state->next_status = PCA9685_ERR_I2C;
     reset_output(&output);
-    debug_command_handler_execute("POSE 10 30 120 135 30 10", &context, &test_handler_io, &output);
+    debug_command_handler_execute("POSE 10 30 120 135 150 10", &context, &test_handler_io, &output);
 
     TEST_ASSERT_TRUE(recovery_context.was_called);
     TEST_ASSERT_STRING_EQUAL("OK POSE\r\n> ", output.output);
@@ -338,7 +340,7 @@ static bool test_pose_command_recovers_from_single_servo_failure(void)
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(30.0f), current_pose.shoulder_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_ELBOW_POSE_RAD, current_pose.elbow_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_TILT_POSE_RAD, current_pose.wrist_tilt_rad);
-    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(30.0f), current_pose.wrist_rotate_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_ROTATE_POSE_RAD, current_pose.wrist_rotate_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(10.0f), current_pose.gripper_rad);
     return true;
 }
@@ -361,7 +363,7 @@ static bool test_pose_delay_command_waits_then_updates_robot_and_reports_ok(void
     pca9685_fake_reset();
     fake_state = pca9685_fake_state();
     reset_output(&output);
-    debug_command_handler_execute("POSE_DELAY 3 10 30 120 135 30 10", &context, &test_handler_io, &output);
+    debug_command_handler_execute("POSE_DELAY 3 10 30 120 135 150 10", &context, &test_handler_io, &output);
 
     TEST_ASSERT_TRUE(delay_context.was_called);
     TEST_ASSERT_UINT32_EQUAL(3000U, delay_context.last_delay_ms);
@@ -372,7 +374,7 @@ static bool test_pose_delay_command_waits_then_updates_robot_and_reports_ok(void
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(30.0f), current_pose.shoulder_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_ELBOW_POSE_RAD, current_pose.elbow_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_TILT_POSE_RAD, current_pose.wrist_tilt_rad);
-    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(30.0f), current_pose.wrist_rotate_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_ROTATE_POSE_RAD, current_pose.wrist_rotate_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(10.0f), current_pose.gripper_rad);
     return true;
 }
@@ -404,7 +406,7 @@ static bool test_home_command_resets_pose_and_reports_ok(void)
     TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.shoulder_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_ELBOW_HOME_RAD, current_pose.elbow_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_TILT_HOME_RAD, current_pose.wrist_tilt_rad);
-    TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.wrist_rotate_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_ROTATE_HOME_RAD, current_pose.wrist_rotate_rad);
     TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(20.0f), current_pose.gripper_rad);
     return true;
 }

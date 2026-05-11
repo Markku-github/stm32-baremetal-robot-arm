@@ -24,6 +24,11 @@
 #define ROBOT_ARM_WRIST_TILT_HOME_ANGLE_RAD (90.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
 #define ROBOT_ARM_WRIST_TILT_SAFE_MIN_PULSE_US 2800U
 #define ROBOT_ARM_WRIST_TILT_SAFE_MAX_PULSE_US 600U
+#define ROBOT_ARM_WRIST_ROTATE_SAFE_MIN_ANGLE_RAD 0.0f
+#define ROBOT_ARM_WRIST_ROTATE_SAFE_MAX_ANGLE_RAD (180.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
+#define ROBOT_ARM_WRIST_ROTATE_HOME_ANGLE_RAD (90.0f * ROBOT_ARM_DEGREES_TO_RADIANS)
+#define ROBOT_ARM_WRIST_ROTATE_SAFE_MIN_PULSE_US 450U
+#define ROBOT_ARM_WRIST_ROTATE_SAFE_MAX_PULSE_US 3000U
 #define ROBOT_ARM_GRIPPER_SAFE_CLOSE_PULSE_US 2450U
 #define ROBOT_ARM_GRIPPER_SAFE_OPEN_PULSE_US 1700U
 
@@ -255,12 +260,12 @@ static const robot_arm_joint_calibration_t robot_arm_default_joint_calibrations[
     {
         .name = "wrist_rotate",
         .channel = 4U,
-        .minimum_angle_rad = -45.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
-        .maximum_angle_rad = 45.0f * ROBOT_ARM_DEGREES_TO_RADIANS,
-        .home_angle_rad = 0.0f,
+        .minimum_angle_rad = ROBOT_ARM_WRIST_ROTATE_SAFE_MIN_ANGLE_RAD,
+        .maximum_angle_rad = ROBOT_ARM_WRIST_ROTATE_SAFE_MAX_ANGLE_RAD,
+        .home_angle_rad = ROBOT_ARM_WRIST_ROTATE_HOME_ANGLE_RAD,
         .offset_rad = 0.0f,
-        .pulse_width_at_min_angle_us = 1200U,
-        .pulse_width_at_max_angle_us = 1800U,
+        .pulse_width_at_min_angle_us = ROBOT_ARM_WRIST_ROTATE_SAFE_MIN_PULSE_US,
+        .pulse_width_at_max_angle_us = ROBOT_ARM_WRIST_ROTATE_SAFE_MAX_PULSE_US,
     },
     {
         .name = "gripper",
