@@ -137,27 +137,30 @@ static uint16_t robot_arm_interpolate_pulse_us(
     return (uint16_t)(pulse_width_f + 0.5f);
 }
 
-static robot_arm_status_t robot_arm_set_shoulder_angle_immediate(servo_t *servo, float angle_rad)
+static robot_arm_status_t robot_arm_calculate_shoulder_pulse_width_us(
+    const servo_t *servo,
+    float angle_rad,
+    float *clamped_angle_rad,
+    uint16_t *pulse_width_us)
 {
-    float clamped_angle_rad;
+    float clamped_angle_rad_local;
     const float shoulder_mid_angle_rad = robot_arm_joint_calibration_shoulder_mid_angle_rad();
     const uint16_t shoulder_mid_pulse_us = robot_arm_joint_calibration_shoulder_mid_pulse_us();
-    uint16_t pulse_width_us;
 
-    if ((servo == 0) || (servo->device == 0))
+    if ((servo == 0) || (clamped_angle_rad == 0) || (pulse_width_us == 0))
     {
         return ROBOT_ARM_ERR_INVALID_ARGUMENT;
     }
 
-    if (robot_arm_map_servo_status(servo_clamp_angle_rad(servo, angle_rad, &clamped_angle_rad)) != ROBOT_ARM_OK)
+    if (robot_arm_map_servo_status(servo_clamp_angle_rad(servo, angle_rad, &clamped_angle_rad_local)) != ROBOT_ARM_OK)
     {
         return ROBOT_ARM_ERR_INVALID_ARGUMENT;
     }
 
-    if (clamped_angle_rad <= shoulder_mid_angle_rad)
+    if (clamped_angle_rad_local <= shoulder_mid_angle_rad)
     {
-        pulse_width_us = robot_arm_interpolate_pulse_us(
-            clamped_angle_rad,
+        *pulse_width_us = robot_arm_interpolate_pulse_us(
+            clamped_angle_rad_local,
             servo->minimum_angle_rad,
             shoulder_mid_angle_rad,
             servo->minimum_pulse_width_us,
@@ -165,12 +168,31 @@ static robot_arm_status_t robot_arm_set_shoulder_angle_immediate(servo_t *servo,
     }
     else
     {
-        pulse_width_us = robot_arm_interpolate_pulse_us(
-            clamped_angle_rad,
+        *pulse_width_us = robot_arm_interpolate_pulse_us(
+            clamped_angle_rad_local,
             shoulder_mid_angle_rad,
             servo->maximum_angle_rad,
             shoulder_mid_pulse_us,
             servo->maximum_pulse_width_us);
+    }
+
+    *clamped_angle_rad = clamped_angle_rad_local;
+    return ROBOT_ARM_OK;
+}
+
+static robot_arm_status_t robot_arm_set_shoulder_angle_immediate(servo_t *servo, float angle_rad)
+{
+    float clamped_angle_rad;
+    uint16_t pulse_width_us;
+
+    if ((servo == 0) || (servo->device == 0))
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+    }
+
+    if (robot_arm_calculate_shoulder_pulse_width_us(servo, angle_rad, &clamped_angle_rad, &pulse_width_us) != ROBOT_ARM_OK)
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
     }
 
     if (robot_arm_map_pca9685_status(pca9685_set_channel_pulse_us(servo->device, servo->channel, pulse_width_us)) != ROBOT_ARM_OK)
@@ -271,6 +293,30 @@ robot_arm_status_t robot_arm_get_current_pose(const robot_arm_t *robot, robot_ar
 
     robot_arm_fill_pose_from_servos(pose, robot->servos);
     return ROBOT_ARM_OK;
+}
+
+robot_arm_status_t robot_arm_calculate_joint_pulse_width_us(
+    const robot_arm_t *robot,
+    robot_arm_joint_id_t joint_id,
+    float angle_rad,
+    uint16_t *pulse_width_us)
+{
+    const servo_t *servo;
+    float clamped_angle_rad;
+
+    if (!robot_arm_is_valid_runtime(robot) || !robot_arm_is_valid_joint(joint_id) || (pulse_width_us == 0))
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+    }
+
+    servo = &robot->servos[(uint8_t)joint_id];
+
+    if (joint_id == ROBOT_ARM_JOINT_SHOULDER)
+    {
+        return robot_arm_calculate_shoulder_pulse_width_us(servo, angle_rad, &clamped_angle_rad, pulse_width_us);
+    }
+
+    return robot_arm_map_servo_status(servo_angle_rad_to_pulse_us(servo, angle_rad, pulse_width_us));
 }
 
 robot_arm_status_t robot_arm_set_pose_immediate(robot_arm_t *robot, const robot_arm_pose_t *pose)

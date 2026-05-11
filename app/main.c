@@ -41,6 +41,7 @@ int main(void)
     uint32_t led_tick_counter = 0U;
     pca9685_device_t pca9685_device;
     robot_arm_t robot;
+    bool robot_self_tests_ok = false;
     bool robot_ready = false;
 
     if (board_nucleo_f767zi_init() != BSP_GPIO_OK)
@@ -58,30 +59,47 @@ int main(void)
         board_nucleo_f767zi_write_debug_string("Booting...\r\n");
         if (boot_self_test_run_pca9685(debug_uart_ready, &pca9685_device))
         {
-            boot_self_test_run_robot_home(debug_uart_ready, &pca9685_device);
-            boot_self_test_run_robot_direct_pose(debug_uart_ready, &pca9685_device);
+            const bool robot_home_self_test_ok = boot_self_test_run_robot_home(debug_uart_ready, &pca9685_device);
+            const bool robot_direct_pose_self_test_ok = boot_self_test_run_robot_direct_pose(debug_uart_ready, &pca9685_device);
 
-            const robot_startup_status_t robot_startup_status =
-                robot_startup_initialize_and_home(&robot, &pca9685_device);
+            robot_self_tests_ok = robot_home_self_test_ok && robot_direct_pose_self_test_ok;
 
-            if (robot_startup_status == ROBOT_STARTUP_OK)
+            if (robot_self_tests_ok)
             {
-                robot_ready = true;
-                board_nucleo_f767zi_write_debug_string("Robot runtime ready at HOME.\r\n");
-            }
-            else if (robot_startup_status == ROBOT_STARTUP_ERR_HOME)
-            {
-                board_nucleo_f767zi_write_debug_string("Robot startup HOME failed.\r\n");
+                const robot_startup_status_t robot_startup_status =
+                    robot_startup_initialize_and_home(&robot, &pca9685_device);
+
+                if (robot_startup_status == ROBOT_STARTUP_OK)
+                {
+                    robot_ready = true;
+                    board_nucleo_f767zi_write_debug_string("Robot runtime ready at HOME.\r\n");
+                }
+                else if (robot_startup_status == ROBOT_STARTUP_ERR_HOME)
+                {
+                    board_nucleo_f767zi_write_debug_string("Robot startup HOME failed.\r\n");
+                }
+                else
+                {
+                    board_nucleo_f767zi_write_debug_string("Robot runtime init failed.\r\n");
+                }
             }
             else
             {
-                board_nucleo_f767zi_write_debug_string("Robot runtime init failed.\r\n");
+                board_nucleo_f767zi_write_debug_string("Robot self-test sequence failed. Controller will remain not ready.\r\n");
             }
         }
 
         if (debug_uart_rx_ready)
         {
-            board_nucleo_f767zi_write_debug_string("USART6 RX command shell ready. Type HELP.\r\n");
+            if (robot_ready)
+            {
+                board_nucleo_f767zi_write_debug_string("USART6 RX command shell ready. Type HELP.\r\n");
+            }
+            else
+            {
+                board_nucleo_f767zi_write_debug_string("USART6 RX command shell ready for diagnostics. Controller not ready.\r\n");
+            }
+
             debug_console_write_prompt();
         }
         else
