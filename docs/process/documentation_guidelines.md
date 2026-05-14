@@ -26,6 +26,10 @@ Keep it focused on:
 
 Use `docs/` for durable tracked guidance such as:
 
+- architecture guidance under topic subdirectories such as `docs/architecture/`
+- planning guidance under topic subdirectories such as `docs/planning/`
+- process guidance under topic subdirectories such as `docs/process/`
+- validation guidance under topic subdirectories such as `docs/validation/`
 - runtime architecture
 - testing policy
 - development workflow
@@ -76,7 +80,7 @@ Avoid comments that merely restate obvious code line by line.
 ## Maintenance rules
 
 - Review `README.md` and the relevant files under `docs/` whenever a branch changes behavior, structure, workflow, or validation expectations.
-- Review and update `docs/roadmap.md` whenever project progress changes the current position, remaining MVP closeout work, or planned milestones.
+- Review and update `docs/planning/roadmap.md` whenever project progress changes the current position, remaining MVP closeout work, or planned milestones.
 - Update documentation in the same branch as the feature, refactor, or policy change it describes.
 - Review source comments and public API comments when a branch changes behavior or interfaces, because code comments are part of the maintained documentation set.
 - Treat large documentation cleanups and policy clarifications as real implementation work, not as optional post-facto polish.
