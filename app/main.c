@@ -15,11 +15,11 @@
 #include "pca9685.h"
 #include "robot_arm.h"
 #include "robot_startup.h"
+#include "runtime_led.h"
 #include "runtime_log.h"
 #include "runtime_status.h"
 
 #define MAIN_LOOP_DELAY_CYCLES 20000U
-#define MAIN_LED_TOGGLE_TICKS 100U
 
 /**
  * @brief  Provide a short busy-wait delay for the cooperative main loop
@@ -40,9 +40,9 @@ static void boot_delay(volatile uint32_t cycles)
  */
 int main(void)
 {
-    uint32_t led_tick_counter = 0U;
     pca9685_device_t pca9685_device;
     robot_arm_t robot;
+    runtime_led_t runtime_led;
     bool robot_self_tests_ok = false;
     bool robot_ready = false;
 
@@ -52,6 +52,9 @@ int main(void)
         {
         }
     }
+
+    runtime_led_init(&runtime_led);
+    runtime_led_set_state(&runtime_led, RUNTIME_LED_STATE_STARTUP);
 
     const bool log_uart_ready = runtime_log_init();
     const bool debug_uart_ready = board_nucleo_f767zi_init_debug_uart() == BSP_UART_OK;
@@ -119,16 +122,23 @@ int main(void)
         runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "USART6 RX interrupt setup failed.");
     }
 
+    if (runtime_status_has_fault_record())
+    {
+        runtime_led_set_state(&runtime_led, RUNTIME_LED_STATE_FAULT_LATCHED);
+    }
+    else if (robot_ready)
+    {
+        runtime_led_set_state(&runtime_led, RUNTIME_LED_STATE_READY_IDLE);
+    }
+    else
+    {
+        runtime_led_set_state(&runtime_led, RUNTIME_LED_STATE_DEGRADED);
+    }
+
     for (;;)
     {
         debug_command_runtime_process_input(debug_uart_rx_ready, robot_ready, &robot, &pca9685_device);
+        runtime_led_tick(&runtime_led);
         boot_delay(MAIN_LOOP_DELAY_CYCLES);
-
-        led_tick_counter++;
-        if (led_tick_counter >= MAIN_LED_TOGGLE_TICKS)
-        {
-            board_nucleo_f767zi_toggle_debug_led();
-            led_tick_counter = 0U;
-        }
     }
 }
