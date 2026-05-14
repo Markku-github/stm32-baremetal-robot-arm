@@ -9,7 +9,8 @@
 
 #include "board_nucleo_f767zi.h"
 
-#define RUNTIME_LED_BLINK_TICKS 100U
+#define RUNTIME_LED_FAST_BLINK_TICKS 250U
+#define RUNTIME_LED_SLOW_BLINK_TICKS 1000U
 
 static bool runtime_led_is_valid_state(runtime_led_state_t state)
 {
@@ -17,6 +18,22 @@ static bool runtime_led_is_valid_state(runtime_led_state_t state)
         || (state == RUNTIME_LED_STATE_READY_IDLE)
         || (state == RUNTIME_LED_STATE_DEGRADED)
         || (state == RUNTIME_LED_STATE_FAULT_LATCHED);
+}
+
+static uint32_t runtime_led_blink_ticks(runtime_led_state_t state)
+{
+    switch (state)
+    {
+        case RUNTIME_LED_STATE_STARTUP:
+            return RUNTIME_LED_FAST_BLINK_TICKS;
+
+        case RUNTIME_LED_STATE_READY_IDLE:
+        case RUNTIME_LED_STATE_DEGRADED:
+            return RUNTIME_LED_SLOW_BLINK_TICKS;
+
+        default:
+            return 0U;
+    }
 }
 
 static void runtime_led_apply_outputs(const runtime_led_t *runtime_led)
@@ -86,18 +103,20 @@ void runtime_led_set_state(runtime_led_t *runtime_led, runtime_led_state_t state
 
 void runtime_led_tick(runtime_led_t *runtime_led)
 {
+    const uint32_t blink_ticks = (runtime_led != 0) ? runtime_led_blink_ticks(runtime_led->state) : 0U;
+
     if ((runtime_led == 0) || !runtime_led_is_valid_state(runtime_led->state))
     {
         return;
     }
 
-    if (runtime_led->state == RUNTIME_LED_STATE_FAULT_LATCHED)
+    if (blink_ticks == 0U)
     {
         return;
     }
 
     runtime_led->tick_counter++;
-    if (runtime_led->tick_counter < RUNTIME_LED_BLINK_TICKS)
+    if (runtime_led->tick_counter < blink_ticks)
     {
         return;
     }

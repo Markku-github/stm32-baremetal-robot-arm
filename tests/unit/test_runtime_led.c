@@ -73,7 +73,14 @@ static bool test_startup_state_blinks_blue_led(void)
     TEST_ASSERT_TRUE(led_states[BOARD_NUCLEO_F767ZI_LED_LD2]);
     TEST_ASSERT_FALSE(led_states[BOARD_NUCLEO_F767ZI_LED_LD3]);
 
-    for (tick_count = 0U; tick_count < 100U; tick_count++)
+    for (tick_count = 0U; tick_count < 249U; tick_count++)
+    {
+        runtime_led_tick(&runtime_led);
+    }
+
+    TEST_ASSERT_TRUE(led_states[BOARD_NUCLEO_F767ZI_LED_LD2]);
+
+    for (; tick_count < 250U; tick_count++)
     {
         runtime_led_tick(&runtime_led);
     }
@@ -85,6 +92,7 @@ static bool test_startup_state_blinks_blue_led(void)
 static bool test_ready_state_blinks_green_led(void)
 {
     runtime_led_t runtime_led;
+    uint32_t tick_count;
 
     reset_led_states();
     runtime_led_init(&runtime_led);
@@ -93,6 +101,20 @@ static bool test_ready_state_blinks_green_led(void)
     TEST_ASSERT_TRUE(led_states[BOARD_NUCLEO_F767ZI_LED_LD1]);
     TEST_ASSERT_FALSE(led_states[BOARD_NUCLEO_F767ZI_LED_LD2]);
     TEST_ASSERT_FALSE(led_states[BOARD_NUCLEO_F767ZI_LED_LD3]);
+
+    for (tick_count = 0U; tick_count < 999U; tick_count++)
+    {
+        runtime_led_tick(&runtime_led);
+    }
+
+    TEST_ASSERT_TRUE(led_states[BOARD_NUCLEO_F767ZI_LED_LD1]);
+
+    for (; tick_count < 1000U; tick_count++)
+    {
+        runtime_led_tick(&runtime_led);
+    }
+
+    TEST_ASSERT_FALSE(led_states[BOARD_NUCLEO_F767ZI_LED_LD1]);
     return true;
 }
 
@@ -109,7 +131,14 @@ static bool test_degraded_state_keeps_green_on_and_blinks_red(void)
     TEST_ASSERT_FALSE(led_states[BOARD_NUCLEO_F767ZI_LED_LD2]);
     TEST_ASSERT_TRUE(led_states[BOARD_NUCLEO_F767ZI_LED_LD3]);
 
-    for (tick_count = 0U; tick_count < 100U; tick_count++)
+    for (tick_count = 0U; tick_count < 999U; tick_count++)
+    {
+        runtime_led_tick(&runtime_led);
+    }
+
+    TEST_ASSERT_TRUE(led_states[BOARD_NUCLEO_F767ZI_LED_LD3]);
+
+    for (; tick_count < 1000U; tick_count++)
     {
         runtime_led_tick(&runtime_led);
     }
