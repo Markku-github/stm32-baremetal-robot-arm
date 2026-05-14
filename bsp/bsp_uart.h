@@ -25,6 +25,7 @@ typedef enum
 typedef enum
 {
     BSP_UART_INSTANCE_USART2 = 0,
+    BSP_UART_INSTANCE_USART3,
     BSP_UART_INSTANCE_USART6,
 } bsp_uart_instance_t;
 

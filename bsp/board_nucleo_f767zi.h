@@ -1,7 +1,7 @@
 /**
  ******************************************************************************
  * @file    board_nucleo_f767zi.h
- * @brief   Nucleo-F767ZI board-level wrappers for LED, debug UART, and I2C access
+ * @brief   Nucleo-F767ZI board-level wrappers for LEDs, UARTs, and I2C access
  ******************************************************************************
  */
 
@@ -14,12 +14,34 @@
 #include "bsp_i2c.h"
 #include "bsp_uart.h"
 
+typedef enum
+{
+	BOARD_NUCLEO_F767ZI_LED_LD1 = 0,
+	BOARD_NUCLEO_F767ZI_LED_LD2,
+	BOARD_NUCLEO_F767ZI_LED_LD3,
+} board_nucleo_f767zi_led_t;
+
 /**
  * @brief  Initialize the basic board resources used during V0 bring-up
  * @retval BSP_GPIO_OK: board resources initialized successfully
  * @retval BSP_GPIO_ERR_INVALID_ARGUMENT: an underlying GPIO configuration failed
  */
 bsp_gpio_status_t board_nucleo_f767zi_init(void);
+
+/**
+ * @brief  Set the state of one onboard Nucleo LED
+ * @param  led: LED identifier to update
+ * @param  enabled: true to turn the LED on, false to turn it off
+ * @retval None
+ */
+void board_nucleo_f767zi_set_led(board_nucleo_f767zi_led_t led, bool enabled);
+
+/**
+ * @brief  Toggle the state of one onboard Nucleo LED
+ * @param  led: LED identifier to update
+ * @retval None
+ */
+void board_nucleo_f767zi_toggle_led(board_nucleo_f767zi_led_t led);
 
 /**
  * @brief  Set the state of the onboard LD1 debug LED
@@ -33,6 +55,14 @@ void board_nucleo_f767zi_set_debug_led(bool enabled);
  * @retval None
  */
 void board_nucleo_f767zi_toggle_debug_led(void);
+
+/**
+ * @brief  Initialize the board log UART on USART3 for the ST-LINK VCP path
+ * @retval BSP_UART_OK: UART initialized successfully
+ * @retval BSP_UART_ERR_INVALID_ARGUMENT: GPIO or UART configuration invalid
+ * @retval BSP_UART_ERR_UNSUPPORTED_INSTANCE: requested UART instance unsupported
+ */
+bsp_uart_status_t board_nucleo_f767zi_init_log_uart(void);
 
 /**
  * @brief  Initialize the board debug UART on USART6
@@ -78,11 +108,27 @@ bsp_uart_status_t board_nucleo_f767zi_read_debug_byte(uint8_t *byte);
 bsp_uart_status_t board_nucleo_f767zi_write_debug_byte(uint8_t byte);
 
 /**
+ * @brief  Transmit one byte through the board log UART
+ * @param  byte: data byte to send
+ * @retval BSP_UART_OK: byte transmitted successfully
+ * @retval BSP_UART_ERR_TIMEOUT: transmitter did not become ready in time
+ * @retval BSP_UART_ERR_UNSUPPORTED_INSTANCE: requested UART instance unsupported
+ */
+bsp_uart_status_t board_nucleo_f767zi_write_log_byte(uint8_t byte);
+
+/**
  * @brief  Transmit a null-terminated string through the board debug UART
  * @param  message: string to send
  * @retval None
  */
 void board_nucleo_f767zi_write_debug_string(const char *message);
+
+/**
+ * @brief  Transmit a null-terminated string through the board log UART
+ * @param  message: string to send
+ * @retval None
+ */
+void board_nucleo_f767zi_write_log_string(const char *message);
 
 /**
  * @brief  Query whether the board debug UART receive buffer overflowed

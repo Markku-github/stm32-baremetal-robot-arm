@@ -39,7 +39,7 @@ static void bsp_uart_startup_delay(void)
 
 static bool bsp_uart_is_supported_instance(bsp_uart_instance_t instance)
 {
-    return (instance == BSP_UART_INSTANCE_USART2) || (instance == BSP_UART_INSTANCE_USART6);
+    return (instance == BSP_UART_INSTANCE_USART2) || (instance == BSP_UART_INSTANCE_USART3) || (instance == BSP_UART_INSTANCE_USART6);
 }
 
 static bsp_uart_rx_buffer_t *bsp_uart_rx_buffer(bsp_uart_instance_t instance)
@@ -59,6 +59,11 @@ static stm32_usart_registers_t *bsp_uart_registers(bsp_uart_instance_t instance)
         return USART2;
     }
 
+    if (instance == BSP_UART_INSTANCE_USART3)
+    {
+        return USART3;
+    }
+
     if (instance == BSP_UART_INSTANCE_USART6)
     {
         return USART6;
@@ -72,6 +77,10 @@ static void bsp_uart_enable_clock(bsp_uart_instance_t instance)
     if (instance == BSP_UART_INSTANCE_USART2)
     {
         RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
+    }
+    else if (instance == BSP_UART_INSTANCE_USART3)
+    {
+        RCC->APB1ENR |= RCC_APB1ENR_USART3EN;
     }
     else if (instance == BSP_UART_INSTANCE_USART6)
     {

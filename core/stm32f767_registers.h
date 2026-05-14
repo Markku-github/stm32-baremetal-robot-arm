@@ -85,6 +85,7 @@ typedef struct
 #define GPIO_PORT_STRIDE 0x00000400UL
 #define I2C1_BASE_ADDRESS 0x40005400UL
 #define USART2_BASE_ADDRESS 0x40004400UL
+#define USART3_BASE_ADDRESS 0x40004800UL
 #define USART6_BASE_ADDRESS 0x40011400UL
 #define NVIC_ISER_BASE_ADDRESS 0xE000E100UL
 #define USART6_IRQ_NUMBER 71U
@@ -94,6 +95,7 @@ typedef struct
 #define FLASH ((stm32_flash_registers_t *)FLASH_BASE_ADDRESS)
 #define I2C1 ((stm32_i2c_registers_t *)I2C1_BASE_ADDRESS)
 #define USART2 ((stm32_usart_registers_t *)USART2_BASE_ADDRESS)
+#define USART3 ((stm32_usart_registers_t *)USART3_BASE_ADDRESS)
 #define USART6 ((stm32_usart_registers_t *)USART6_BASE_ADDRESS)
 
 #define SCB_CPACR_CP10_CP11_FULL_ACCESS (0xFUL << 20)
@@ -110,6 +112,7 @@ typedef struct
 #define RCC_AHB1ENR_GPIO_PORT_ENABLE(port_index) (1UL << (port_index))
 #define RCC_APB1ENR_I2C1EN (1UL << 21)
 #define RCC_APB1ENR_USART2EN (1UL << 17)
+#define RCC_APB1ENR_USART3EN (1UL << 18)
 #define RCC_APB2ENR_USART6EN (1UL << 5)
 
 #define I2C_CR1_PE (1UL << 0)
