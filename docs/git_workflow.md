@@ -26,6 +26,12 @@ The goal is to keep `main` stable, branch scopes narrow, and the history easy to
 6. Merge into `main` with `git merge --no-ff <branch-name>`.
 7. Push the updated `main` branch after the accepted merge.
 
+## GitHub repository files
+
+- Track repository-facing GitHub files under `.github/` when they define workflows or other repository behavior that should apply to everyone.
+- Keep local tool-specific files out of tracked history when they are not part of the repository policy.
+- Treat GitHub Actions checks as an additional safety net, not as a substitute for the local validation required before merge.
+
 ## Tags and releases
 
 - Use version tags to mark durable baselines on `main` that should stay easy to find, compare, and revisit later.

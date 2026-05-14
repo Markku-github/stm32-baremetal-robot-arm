@@ -1,0 +1,27 @@
+name: Bootstrap Build
+
+on:
+  push:
+    branches:
+      - main
+      - build/github-actions-foundation
+  workflow_dispatch:
+
+jobs:
+  bootstrap-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install firmware build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi ninja-build
+
+      - name: Configure bootstrap firmware build
+        run: cmake -S . -B build/bootstrap-ci -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi-toolchain.cmake
+
+      - name: Build bootstrap firmware
+        run: cmake --build build/bootstrap-ci --target robot_arm_bootstrap
