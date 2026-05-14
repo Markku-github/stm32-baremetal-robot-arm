@@ -7,13 +7,13 @@ This repository contains bare-metal firmware for an STM32 Nucleo-F767ZI based co
 Detailed project guidance is tracked under `docs/`:
 
 - [docs/README.md](docs/README.md)
-- [docs/runtime_architecture.md](docs/runtime_architecture.md)
-- [docs/testing_strategy.md](docs/testing_strategy.md)
-- [docs/mvp_validation_coverage.md](docs/mvp_validation_coverage.md)
-- [docs/development_workflow.md](docs/development_workflow.md)
-- [docs/git_workflow.md](docs/git_workflow.md)
-- [docs/documentation_guidelines.md](docs/documentation_guidelines.md)
-- [docs/roadmap.md](docs/roadmap.md)
+- [docs/architecture/runtime_architecture.md](docs/architecture/runtime_architecture.md)
+- [docs/validation/testing_strategy.md](docs/validation/testing_strategy.md)
+- [docs/validation/mvp_validation_coverage.md](docs/validation/mvp_validation_coverage.md)
+- [docs/process/development_workflow.md](docs/process/development_workflow.md)
+- [docs/process/git_workflow.md](docs/process/git_workflow.md)
+- [docs/process/documentation_guidelines.md](docs/process/documentation_guidelines.md)
+- [docs/planning/roadmap.md](docs/planning/roadmap.md)
 
 ## Current implementation status
 
