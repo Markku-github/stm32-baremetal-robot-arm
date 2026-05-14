@@ -133,6 +133,15 @@ The intended observability direction is:
 - build-time log filtering so lower-priority logs can be compiled out when appropriate
 - a compact `STATUS` command that reports the current snapshot state instead of trying to act as a full history dump
 
+The current `STATUS` snapshot contract in the early V1 baseline is:
+
+- always report controller readiness
+- report the captured reset-flag snapshot
+- report the latched fault kind when one exists
+- report pose lines only when the controller is ready and the current pose is readable
+
+That contract keeps `STATUS` useful even when the controller is degraded or not ready, while transient details still belong primarily in the log stream.
+
 On the Nucleo-F767ZI hardware used in this repository, the preferred V1 split is:
 
 - operator command ingress on the existing application UART path
