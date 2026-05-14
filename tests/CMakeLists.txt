@@ -113,6 +113,7 @@ target_include_directories(${DEBUG_COMMAND_HANDLER_UNIT_TEST_TARGET} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/fakes
     ${CMAKE_SOURCE_DIR}/app
     ${CMAKE_SOURCE_DIR}/bsp
+    ${CMAKE_SOURCE_DIR}/core
     ${CMAKE_SOURCE_DIR}/drivers/pca9685
     ${CMAKE_SOURCE_DIR}/drivers/servo
     ${CMAKE_SOURCE_DIR}/robot
@@ -175,6 +176,7 @@ target_include_directories(${DEBUG_COMMAND_INTEGRATION_TEST_TARGET} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/fakes
     ${CMAKE_SOURCE_DIR}/app
     ${CMAKE_SOURCE_DIR}/bsp
+    ${CMAKE_SOURCE_DIR}/core
     ${CMAKE_SOURCE_DIR}/drivers/pca9685
     ${CMAKE_SOURCE_DIR}/drivers/servo
     ${CMAKE_SOURCE_DIR}/robot

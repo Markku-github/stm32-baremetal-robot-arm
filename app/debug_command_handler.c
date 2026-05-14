@@ -8,6 +8,7 @@
 #include "debug_command_handler.h"
 
 #include "debug_command_parser.h"
+#include "runtime_status.h"
 
 #define DEBUG_COMMAND_HANDLER_RADIANS_TO_DEGREES 57.2957795130823208768f
 #define DEBUG_COMMAND_HANDLER_MAX_POSE_DELAY_SECONDS 30U
@@ -129,20 +130,147 @@ static void debug_command_handler_write_command_ok(
     io->write_string(io_context, "\r\n");
 }
 
-static void debug_command_handler_write_status_text(
+static const char *debug_command_handler_fault_kind_name(runtime_status_fault_kind_t fault_kind)
+{
+    switch (fault_kind)
+    {
+        case RUNTIME_STATUS_FAULT_DEFAULT_HANDLER:
+            return "Default_Handler";
+
+        case RUNTIME_STATUS_FAULT_NMI:
+            return "NMI";
+
+        case RUNTIME_STATUS_FAULT_HARDFAULT:
+            return "HardFault";
+
+        case RUNTIME_STATUS_FAULT_MEMMANAGE:
+            return "MemManage";
+
+        case RUNTIME_STATUS_FAULT_BUSFAULT:
+            return "BusFault";
+
+        case RUNTIME_STATUS_FAULT_USAGEFAULT:
+            return "UsageFault";
+
+        default:
+            return "none";
+    }
+}
+
+static void debug_command_handler_write_reset_flag_name(
     const debug_command_handler_io_t *io,
     void *io_context,
-    const robot_arm_t *robot)
+    uint32_t *remaining_flags,
+    runtime_status_reset_flag_t flag,
+    const char *name,
+    bool *wrote_any)
 {
-    robot_arm_pose_t pose;
-
-    if ((robot == 0) || (robot_arm_get_current_pose(robot, &pose) != ROBOT_ARM_OK))
+    if (((*remaining_flags) & (uint32_t)flag) == 0U)
     {
-        io->write_string(io_context, "ERR CONTROLLER_NOT_READY\r\n");
         return;
     }
 
+    if (*wrote_any)
+    {
+        io->write_string(io_context, ", ");
+    }
+
+    io->write_string(io_context, name);
+    *wrote_any = true;
+    *remaining_flags &= ~((uint32_t)flag);
+}
+
+static void debug_command_handler_write_reset_flags(
+    const debug_command_handler_io_t *io,
+    void *io_context)
+{
+    uint32_t remaining_flags = runtime_status_reset_flags();
+    bool wrote_any = false;
+
+    if (remaining_flags == RUNTIME_STATUS_RESET_FLAG_NONE)
+    {
+        io->write_string(io_context, "none");
+        return;
+    }
+
+    debug_command_handler_write_reset_flag_name(
+        io,
+        io_context,
+        &remaining_flags,
+        RUNTIME_STATUS_RESET_FLAG_LOW_POWER,
+        "LPWRRSTF",
+        &wrote_any);
+    debug_command_handler_write_reset_flag_name(
+        io,
+        io_context,
+        &remaining_flags,
+        RUNTIME_STATUS_RESET_FLAG_WINDOW_WATCHDOG,
+        "WWDGRSTF",
+        &wrote_any);
+    debug_command_handler_write_reset_flag_name(
+        io,
+        io_context,
+        &remaining_flags,
+        RUNTIME_STATUS_RESET_FLAG_INDEPENDENT_WATCHDOG,
+        "IWDGRSTF",
+        &wrote_any);
+    debug_command_handler_write_reset_flag_name(
+        io,
+        io_context,
+        &remaining_flags,
+        RUNTIME_STATUS_RESET_FLAG_SOFTWARE,
+        "SFTRSTF",
+        &wrote_any);
+    debug_command_handler_write_reset_flag_name(
+        io,
+        io_context,
+        &remaining_flags,
+        RUNTIME_STATUS_RESET_FLAG_POWER_ON,
+        "PORRSTF",
+        &wrote_any);
+    debug_command_handler_write_reset_flag_name(
+        io,
+        io_context,
+        &remaining_flags,
+        RUNTIME_STATUS_RESET_FLAG_PIN,
+        "PINRSTF",
+        &wrote_any);
+    debug_command_handler_write_reset_flag_name(
+        io,
+        io_context,
+        &remaining_flags,
+        RUNTIME_STATUS_RESET_FLAG_BROWNOUT,
+        "BORRSTF",
+        &wrote_any);
+}
+
+static void debug_command_handler_write_status_text(
+    const debug_command_handler_io_t *io,
+    void *io_context,
+    bool robot_ready,
+    const robot_arm_t *robot)
+{
+    robot_arm_pose_t pose;
+    const bool pose_available = robot_ready
+        && (robot != 0)
+        && (robot_arm_get_current_pose(robot, &pose) == ROBOT_ARM_OK);
+
     io->write_string(io_context, "STATUS\r\n");
+    io->write_string(io_context, "controller=");
+    io->write_string(io_context, robot_ready ? "ready\r\n" : "not_ready\r\n");
+    io->write_string(io_context, "reset_flags=");
+    debug_command_handler_write_reset_flags(io, io_context);
+    io->write_string(io_context, "\r\n");
+    io->write_string(io_context, "fault=");
+    io->write_string(io_context, debug_command_handler_fault_kind_name(runtime_status_fault_kind()));
+    io->write_string(io_context, "\r\n");
+
+    if (!pose_available)
+    {
+        io->write_string(io_context, "pose=unavailable\r\n");
+        return;
+    }
+
     debug_command_handler_write_joint_status_line(io, io_context, "base", pose.base_rad);
     debug_command_handler_write_joint_status_line(io, io_context, "shoulder", pose.shoulder_rad);
     debug_command_handler_write_joint_status_line(io, io_context, "elbow", pose.elbow_rad);
@@ -267,13 +395,9 @@ void debug_command_handler_execute(
         {
             io->write_string(io_context, "ERR INVALID_ARGUMENT\r\n");
         }
-        else if (!robot_ready)
-        {
-            io->write_string(io_context, "ERR CONTROLLER_NOT_READY\r\n");
-        }
         else
         {
-            debug_command_handler_write_status_text(io, io_context, robot);
+            debug_command_handler_write_status_text(io, io_context, robot_ready, robot);
         }
 
         io->write_prompt(io_context);
