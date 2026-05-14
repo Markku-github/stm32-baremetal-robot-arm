@@ -175,7 +175,7 @@ static robot_pose_readback_status_t write_robot_pose_off_counts(
     return ROBOT_POSE_READBACK_OK;
 }
 
-bool boot_self_test_run_pca9685(bool debug_uart_ready, pca9685_device_t *device)
+bool boot_self_test_run_pca9685(pca9685_device_t *device)
 {
     uint8_t mode1_value;
     uint8_t mode2_value;
@@ -184,7 +184,7 @@ bool boot_self_test_run_pca9685(bool debug_uart_ready, pca9685_device_t *device)
     uint16_t off_count;
     uint16_t expected_off_count;
 
-    if (!debug_uart_ready || (device == 0))
+    if (device == 0)
     {
         return false;
     }
@@ -258,13 +258,13 @@ bool boot_self_test_run_pca9685(bool debug_uart_ready, pca9685_device_t *device)
     return true;
 }
 
-bool boot_self_test_run_robot_home(bool debug_uart_ready, pca9685_device_t *device)
+bool boot_self_test_run_robot_home(pca9685_device_t *device)
 {
     robot_arm_t robot;
     robot_arm_pose_t home_pose;
     robot_pose_readback_status_t readback_status;
 
-    if (!debug_uart_ready || (device == 0))
+    if (device == 0)
     {
         return false;
     }
@@ -308,14 +308,14 @@ bool boot_self_test_run_robot_home(bool debug_uart_ready, pca9685_device_t *devi
         "Robot HOME integration self-test OK. Outputs returned to the disabled state. External servo power is still not required for this register-level check.\r\n");
 }
 
-bool boot_self_test_run_robot_direct_pose(bool debug_uart_ready, pca9685_device_t *device)
+bool boot_self_test_run_robot_direct_pose(pca9685_device_t *device)
 {
     robot_arm_t robot;
     robot_arm_pose_t pose;
     robot_arm_pose_t current_pose;
     robot_pose_readback_status_t readback_status;
 
-    if (!debug_uart_ready || (device == 0))
+    if (device == 0)
     {
         return false;
     }

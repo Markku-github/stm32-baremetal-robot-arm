@@ -63,57 +63,58 @@ int main(void)
         runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "Booting...");
     }
 
-    if (debug_uart_ready)
+    if (boot_self_test_run_pca9685(&pca9685_device))
     {
-        if (boot_self_test_run_pca9685(debug_uart_ready, &pca9685_device))
+        const bool robot_home_self_test_ok = boot_self_test_run_robot_home(&pca9685_device);
+        const bool robot_direct_pose_self_test_ok = boot_self_test_run_robot_direct_pose(&pca9685_device);
+
+        robot_self_tests_ok = robot_home_self_test_ok && robot_direct_pose_self_test_ok;
+
+        if (robot_self_tests_ok)
         {
-            const bool robot_home_self_test_ok = boot_self_test_run_robot_home(debug_uart_ready, &pca9685_device);
-            const bool robot_direct_pose_self_test_ok = boot_self_test_run_robot_direct_pose(debug_uart_ready, &pca9685_device);
+            const robot_startup_status_t robot_startup_status =
+                robot_startup_initialize_and_home(&robot, &pca9685_device);
 
-            robot_self_tests_ok = robot_home_self_test_ok && robot_direct_pose_self_test_ok;
-
-            if (robot_self_tests_ok)
+            if (robot_startup_status == ROBOT_STARTUP_OK)
             {
-                const robot_startup_status_t robot_startup_status =
-                    robot_startup_initialize_and_home(&robot, &pca9685_device);
-
-                if (robot_startup_status == ROBOT_STARTUP_OK)
-                {
-                    robot_ready = true;
-                    runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "Robot runtime ready at HOME.");
-                }
-                else if (robot_startup_status == ROBOT_STARTUP_ERR_HOME)
-                {
-                    runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot startup HOME failed.");
-                }
-                else
-                {
-                    runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot runtime init failed.");
-                }
+                robot_ready = true;
+                runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "Robot runtime ready at HOME.");
+            }
+            else if (robot_startup_status == ROBOT_STARTUP_ERR_HOME)
+            {
+                runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot startup HOME failed.");
             }
             else
             {
-                runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot self-test sequence failed. Controller will remain not ready.");
+                runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot runtime init failed.");
             }
-        }
-
-        if (debug_uart_rx_ready)
-        {
-            if (robot_ready)
-            {
-                runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "USART6 RX command shell ready. Type HELP.");
-            }
-            else
-            {
-                runtime_log_write_line(RUNTIME_LOG_LEVEL_WARNING, "USART6 RX command shell ready for diagnostics. Controller not ready.");
-            }
-
-            debug_console_write_prompt();
         }
         else
         {
-            runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "USART6 RX interrupt setup failed.");
+            runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot self-test sequence failed. Controller will remain not ready.");
         }
+    }
+
+    if (!debug_uart_ready)
+    {
+        runtime_log_write_line(RUNTIME_LOG_LEVEL_WARNING, "USART6 command shell unavailable.");
+    }
+    else if (debug_uart_rx_ready)
+    {
+        if (robot_ready)
+        {
+            runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "USART6 RX command shell ready. Type HELP.");
+        }
+        else
+        {
+            runtime_log_write_line(RUNTIME_LOG_LEVEL_WARNING, "USART6 RX command shell ready for diagnostics. Controller not ready.");
+        }
+
+        debug_console_write_prompt();
+    }
+    else
+    {
+        runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "USART6 RX interrupt setup failed.");
     }
 
     for (;;)

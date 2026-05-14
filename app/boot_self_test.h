@@ -12,8 +12,8 @@
 
 #include "pca9685.h"
 
-bool boot_self_test_run_pca9685(bool debug_uart_ready, pca9685_device_t *device);
-bool boot_self_test_run_robot_home(bool debug_uart_ready, pca9685_device_t *device);
-bool boot_self_test_run_robot_direct_pose(bool debug_uart_ready, pca9685_device_t *device);
+bool boot_self_test_run_pca9685(pca9685_device_t *device);
+bool boot_self_test_run_robot_home(pca9685_device_t *device);
+bool boot_self_test_run_robot_direct_pose(pca9685_device_t *device);
 
 #endif
