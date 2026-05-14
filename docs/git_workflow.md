@@ -35,10 +35,17 @@ The goal is to keep `main` stable, branch scopes narrow, and the history easy to
 ## Tags and releases
 
 - Use version tags to mark durable baselines on `main` that should stay easy to find, compare, and revisit later.
+- Every published named version baseline in this project should have an annotated git tag.
 - Create tags only after the relevant branch work has been merged and the chosen `main` commit has passed the required validation for that baseline.
 - Use annotated tags rather than lightweight tags so the baseline has a clear human-readable message.
 - Do not tag every commit or every branch merge. Most commits should remain untagged.
 - Use GitHub releases only for milestone tags that deserve a durable human-readable summary, not for every tagged fix.
+
+By default in this repository:
+
+- create a tag for each planned published version baseline
+- create GitHub releases for `v0.1.0`, `v1.0.0`, and `v2.0.0`
+- skip GitHub releases for intermediate baseline tags unless a later task explicitly decides otherwise
 
 The default milestone points currently expected in this repository are:
 
@@ -51,38 +58,47 @@ The default milestone points currently expected in this repository are:
 
 Use tag names in the form `vMAJOR.MINOR.PATCH`.
 
-- `MAJOR`: increment when the repository reaches a new named project-phase baseline or another intentionally major public baseline. For the current roadmap, `v1.0.0` is the expected V1 closeout tag and `v2.0.0` is the expected V2 closeout tag.
-- `MINOR`: increment for a substantial new baseline within the current major line. Before `v1.0.0`, this is the main way to mark meaningful growth, for example `v0.1.0` for MVP closeout, `v0.2.0` for a substantial V1-era expansion, and `v0.3.0` for the next comparable step.
-- `PATCH`: increment for a narrow corrective release on top of an already tagged baseline, for example `v0.1.1` or `v0.2.1`, when the goal is to preserve the same baseline while fixing defects, validation gaps, or similarly small follow-up issues.
+- `MAJOR`: increment when the repository reaches a new named project-phase closeout baseline or another intentionally major public baseline. For the current roadmap, `v1.0.0` is the expected V1 closeout tag and `v2.0.0` is the expected V2 closeout tag.
+- `MINOR`: increment for a substantial new baseline within the current major line. Before `v1.0.0`, this is the main way to mark meaningful growth, for example `v0.1.0` for MVP closeout, `v0.2.0` for a substantial V1-era expansion, and later `v0.10.0` or `v0.11.0` if many pre-V1-closeout baselines are needed. After `v1.0.0`, the same logic continues on the `v1.x.0` line for substantial V2-era baselines until V2 closeout.
+- `PATCH`: increment for a narrow corrective release on top of an already tagged baseline, for example `v0.1.1`, `v0.3.1`, or `v1.2.1`, when the goal is to preserve the same baseline while fixing defects, validation gaps, or similarly small follow-up issues.
 
 Patch numbers are not used for every commit. They exist for occasional post-baseline correction releases, not for day-to-day development history.
+
+Roadmaps and phase plans should usually describe version progression only at the baseline-line level, for example `v0.2.x`, `v0.3.x`, or `v1.2.x`, rather than pre-allocating exact patch numbers long before the work is finished.
+
+When a roadmap slice maps to one planned tagged baseline line, name that slice with the baseline line itself, for example `v0.2.x` or `v1.1.x`, rather than introducing a second decimal label such as `V1.1` or `V2.1` for the same scope. Reserve `V1` and `V2` for the broad phase names.
+
+Do not introduce a separate pre-closeout version line whose main purpose is to validate or review already-planned phase slices. When the remaining work is broad phase-closeout review and validation, use that review to decide whether the phase closeout tag such as `v1.0.0` is justified, rather than inventing another `v0.x.0` validation version.
 
 ### Practical interpretation for this repository
 
 - `v0.1.0` is the expected MVP closeout baseline.
-- Later pre-`1.0.0` milestones should normally advance the minor number rather than the patch number when they add a substantial new capability baseline.
+- While V1 is still in progress, substantial tracked baselines should normally stay on the `v0.x.0` line.
+- There is no special upper limit at `v0.9.0`; version components are ordinary integers, so `v0.10.0`, `v0.11.0`, and higher are normal if the project needs them before V1 closeout.
 - `v1.0.0` should mean that the planned V1 scope is intentionally declared complete, not merely that one large feature landed.
+- While V2 is still in progress after `v1.0.0`, substantial tracked baselines should normally stay on the `v1.x.0` line.
 - `v2.0.0` should follow the same logic for the V2 scope.
 
 Examples:
 
 - tag `v0.2.0` after V1 work has advanced enough to create a clearly stronger baseline than MVP, even if V1 is not fully complete yet
-- tag `v0.3.0` after another similarly meaningful baseline in the same pre-`1.0.0` line
-- tag `v0.1.1` only if the already-declared MVP baseline needs a small corrective follow-up without redefining the baseline as a new milestone
+- tag `v0.10.0` if many substantial pre-V1-closeout baselines are needed before `v1.0.0`
+- tag `v1.1.0` after the first substantial V2-era baseline once `v1.0.0` exists
+- tag `v0.3.1` only if the already-tagged `v0.3.0` baseline needs a small corrective follow-up without redefining the baseline as a new milestone
 
 ### When to use a patch version
 
-Use a patch tag when all of the following are true:
+Use a patch tag when at least one of these controlled cases applies:
 
-- the repository already has a milestone tag that people may rely on
-- the new work is mainly corrective rather than a new phase or major capability step
-- the intent is to preserve the same baseline identity while improving its correctness or completeness
+- the repository already has a tagged baseline that people may rely on, and the new work is mainly corrective rather than a new phase or major capability step
+- one already-planned baseline line needs to be split deliberately into multiple durable sub-baselines after implementation begins, while still staying within the same higher-level roadmap bucket
 
 Typical patch-tag cases include:
 
 - a bug fix found shortly after a milestone tag
 - a correction to validation or build wiring that does not materially change the project phase
 - a narrowly scoped post-baseline documentation or packaging correction when it matters to the released baseline
+- a consciously split follow-up baseline such as `v0.4.1` after `v0.4.0` when the same planned `v0.4.x` scope turns out to need more than one durable tagged step
 
 Do not use a patch tag just because another commit was made. Most commits after a tag should remain ordinary history until there is a concrete reason to publish a corrected baseline.
 
@@ -94,6 +110,7 @@ Do not create a new version tag for:
 - every branch merge into `main`
 - documentation-only cleanup that does not change the declared baseline
 - intermediate states that are useful for development but not worth treating as a durable reference point
+- a broad phase-closeout validation/review pass whose purpose is to decide whether the intended closeout tag is justified
 
 If a change matters enough that future work, reports, or validation notes should refer to it as a named baseline, tagging is appropriate. If it does not meet that bar, an ordinary merge commit is enough.
 
