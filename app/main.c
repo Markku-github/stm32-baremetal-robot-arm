@@ -16,6 +16,7 @@
 #include "robot_arm.h"
 #include "robot_startup.h"
 #include "runtime_log.h"
+#include "runtime_status.h"
 
 #define MAIN_LOOP_DELAY_CYCLES 20000U
 #define MAIN_LED_TOGGLE_TICKS 100U
@@ -61,6 +62,7 @@ int main(void)
     if (log_uart_ready || debug_uart_ready)
     {
         runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "Booting...");
+        runtime_status_log_boot_snapshot();
     }
 
     if (boot_self_test_run_pca9685(&pca9685_device))

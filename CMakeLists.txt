@@ -54,6 +54,7 @@ else()
         bsp/bsp_gpio.c
         bsp/bsp_i2c.c
         bsp/bsp_uart.c
+        core/runtime_status.c
         core/startup.c
         drivers/pca9685/pca9685.c
         drivers/servo/servo.c

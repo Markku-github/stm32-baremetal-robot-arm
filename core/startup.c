@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include "runtime_status.h"
 #include "system_stm32f7xx.h"
 #include "stm32f767_registers.h"
 
@@ -81,6 +82,7 @@ void Reset_Handler(void)
 {
     initialize_data();
     initialize_bss();
+    runtime_status_capture_early_boot();
     SystemInit();
 
     (void)main();

@@ -29,6 +29,8 @@ typedef struct
     volatile uint32_t RESERVED2;
     volatile uint32_t APB1ENR;
     volatile uint32_t APB2ENR;
+    volatile uint32_t RESERVED3[11];
+    volatile uint32_t CSR;
 } stm32_rcc_registers_t;
 
 typedef struct
@@ -114,6 +116,15 @@ typedef struct
 #define RCC_APB1ENR_USART2EN (1UL << 17)
 #define RCC_APB1ENR_USART3EN (1UL << 18)
 #define RCC_APB2ENR_USART6EN (1UL << 5)
+
+#define RCC_CSR_RMVF (1UL << 24)
+#define RCC_CSR_BORRSTF (1UL << 25)
+#define RCC_CSR_PINRSTF (1UL << 26)
+#define RCC_CSR_PORRSTF (1UL << 27)
+#define RCC_CSR_SFTRSTF (1UL << 28)
+#define RCC_CSR_IWDGRSTF (1UL << 29)
+#define RCC_CSR_WWDGRSTF (1UL << 30)
+#define RCC_CSR_LPWRRSTF (1UL << 31)
 
 #define I2C_CR1_PE (1UL << 0)
 
