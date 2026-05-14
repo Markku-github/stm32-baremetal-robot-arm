@@ -15,22 +15,12 @@
 #include "pca9685.h"
 #include "robot_arm.h"
 #include "robot_startup.h"
+#include "runtime_led.h"
+#include "runtime_log.h"
+#include "runtime_status.h"
+#include "runtime_tick.h"
 
-#define MAIN_LOOP_DELAY_CYCLES 20000U
-#define MAIN_LED_TOGGLE_TICKS 100U
-
-/**
- * @brief  Provide a short busy-wait delay for the cooperative main loop
- * @param  cycles: loop iterations to wait
- * @retval None
- */
-static void boot_delay(volatile uint32_t cycles)
-{
-    while (cycles > 0U)
-    {
-        cycles--;
-    }
-}
+#define MAIN_PERIODIC_TICK_MS 1U
 
 /**
  * @brief  Initialize the board, run controller self-tests, and enter the UART command loop
@@ -38,9 +28,10 @@ static void boot_delay(volatile uint32_t cycles)
  */
 int main(void)
 {
-    uint32_t led_tick_counter = 0U;
+    uint32_t last_periodic_tick_ms = 0U;
     pca9685_device_t pca9685_device;
     robot_arm_t robot;
+    runtime_led_t runtime_led;
     bool robot_self_tests_ok = false;
     bool robot_ready = false;
 
@@ -51,73 +42,114 @@ int main(void)
         }
     }
 
+    runtime_led_init(&runtime_led);
+    runtime_led_set_state(&runtime_led, RUNTIME_LED_STATE_STARTUP);
+
+    const bool log_uart_ready = runtime_log_init();
     const bool debug_uart_ready = board_nucleo_f767zi_init_debug_uart() == BSP_UART_OK;
     const bool debug_uart_rx_ready = debug_uart_ready && (board_nucleo_f767zi_enable_debug_uart_rx_interrupt() == BSP_UART_OK);
 
-    if (debug_uart_ready)
+    runtime_log_enable_debug_fallback(!log_uart_ready && debug_uart_ready);
+
+    if (!runtime_tick_init())
     {
-        board_nucleo_f767zi_write_debug_string("Booting...\r\n");
-        if (boot_self_test_run_pca9685(debug_uart_ready, &pca9685_device))
+        if (log_uart_ready || debug_uart_ready)
         {
-            const bool robot_home_self_test_ok = boot_self_test_run_robot_home(debug_uart_ready, &pca9685_device);
-            const bool robot_direct_pose_self_test_ok = boot_self_test_run_robot_direct_pose(debug_uart_ready, &pca9685_device);
-
-            robot_self_tests_ok = robot_home_self_test_ok && robot_direct_pose_self_test_ok;
-
-            if (robot_self_tests_ok)
-            {
-                const robot_startup_status_t robot_startup_status =
-                    robot_startup_initialize_and_home(&robot, &pca9685_device);
-
-                if (robot_startup_status == ROBOT_STARTUP_OK)
-                {
-                    robot_ready = true;
-                    board_nucleo_f767zi_write_debug_string("Robot runtime ready at HOME.\r\n");
-                }
-                else if (robot_startup_status == ROBOT_STARTUP_ERR_HOME)
-                {
-                    board_nucleo_f767zi_write_debug_string("Robot startup HOME failed.\r\n");
-                }
-                else
-                {
-                    board_nucleo_f767zi_write_debug_string("Robot runtime init failed.\r\n");
-                }
-            }
-            else
-            {
-                board_nucleo_f767zi_write_debug_string("Robot self-test sequence failed. Controller will remain not ready.\r\n");
-            }
+            runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "SysTick init failed.");
         }
 
-        if (debug_uart_rx_ready)
+        for (;;)
         {
-            if (robot_ready)
+        }
+    }
+
+    last_periodic_tick_ms = runtime_tick_now_ms();
+
+    if (log_uart_ready || debug_uart_ready)
+    {
+        runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "Booting...");
+        runtime_status_log_boot_snapshot();
+    }
+
+    if (boot_self_test_run_pca9685(&pca9685_device))
+    {
+        const bool robot_home_self_test_ok = boot_self_test_run_robot_home(&pca9685_device);
+        const bool robot_direct_pose_self_test_ok = boot_self_test_run_robot_direct_pose(&pca9685_device);
+
+        robot_self_tests_ok = robot_home_self_test_ok && robot_direct_pose_self_test_ok;
+
+        if (robot_self_tests_ok)
+        {
+            const robot_startup_status_t robot_startup_status =
+                robot_startup_initialize_and_home(&robot, &pca9685_device);
+
+            if (robot_startup_status == ROBOT_STARTUP_OK)
             {
-                board_nucleo_f767zi_write_debug_string("USART6 RX command shell ready. Type HELP.\r\n");
+                robot_ready = true;
+                runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "Robot runtime ready at HOME.");
+            }
+            else if (robot_startup_status == ROBOT_STARTUP_ERR_HOME)
+            {
+                runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot startup HOME failed.");
             }
             else
             {
-                board_nucleo_f767zi_write_debug_string("USART6 RX command shell ready for diagnostics. Controller not ready.\r\n");
+                runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot runtime init failed.");
             }
-
-            debug_console_write_prompt();
         }
         else
         {
-            board_nucleo_f767zi_write_debug_string("USART6 RX interrupt setup failed.\r\n");
+            runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot self-test sequence failed. Controller will remain not ready.");
         }
+    }
+
+    if (!debug_uart_ready)
+    {
+        runtime_log_write_line(RUNTIME_LOG_LEVEL_WARNING, "USART6 command shell unavailable.");
+    }
+    else if (debug_uart_rx_ready)
+    {
+        if (robot_ready)
+        {
+            runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "USART6 RX command shell ready. Type HELP.");
+        }
+        else
+        {
+            runtime_log_write_line(RUNTIME_LOG_LEVEL_WARNING, "USART6 RX command shell ready for diagnostics. Controller not ready.");
+        }
+
+        debug_console_write_prompt();
+    }
+    else
+    {
+        runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "USART6 RX interrupt setup failed.");
+    }
+
+    if (runtime_status_has_fault_record())
+    {
+        runtime_led_set_state(&runtime_led, RUNTIME_LED_STATE_FAULT_LATCHED);
+    }
+    else if (robot_ready)
+    {
+        runtime_led_set_state(&runtime_led, RUNTIME_LED_STATE_READY_IDLE);
+    }
+    else
+    {
+        runtime_led_set_state(&runtime_led, RUNTIME_LED_STATE_DEGRADED);
     }
 
     for (;;)
     {
-        debug_command_runtime_process_input(debug_uart_rx_ready, robot_ready, &robot, &pca9685_device);
-        boot_delay(MAIN_LOOP_DELAY_CYCLES);
+        const uint32_t now_ms = runtime_tick_now_ms();
 
-        led_tick_counter++;
-        if (led_tick_counter >= MAIN_LED_TOGGLE_TICKS)
+        if (debug_command_runtime_has_pending_work(debug_uart_rx_ready))
         {
-            board_nucleo_f767zi_toggle_debug_led();
-            led_tick_counter = 0U;
+            debug_command_runtime_process_input(debug_uart_rx_ready, robot_ready, &robot, &pca9685_device);
+        }
+
+        if (runtime_tick_periodic_due(now_ms, MAIN_PERIODIC_TICK_MS, &last_periodic_tick_ms))
+        {
+            runtime_led_tick(&runtime_led);
         }
     }
 }

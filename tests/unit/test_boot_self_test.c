@@ -50,7 +50,17 @@ bsp_i2c_status_t board_nucleo_f767zi_init_pca9685_i2c(void)
     return BSP_I2C_OK;
 }
 
+bsp_uart_status_t board_nucleo_f767zi_init_log_uart(void)
+{
+    return BSP_UART_OK;
+}
+
 void board_nucleo_f767zi_write_debug_string(const char *message)
+{
+    (void)message;
+}
+
+void board_nucleo_f767zi_write_log_string(const char *message)
 {
     (void)message;
 }
@@ -93,7 +103,7 @@ static bool test_boot_self_test_run_robot_direct_pose_uses_runtime_readback_mapp
     pca9685_fake_reset();
     fake_state = pca9685_fake_state();
 
-    TEST_ASSERT_TRUE(boot_self_test_run_robot_direct_pose(true, &test_device));
+    TEST_ASSERT_TRUE(boot_self_test_run_robot_direct_pose(&test_device));
     TEST_ASSERT_UINT32_EQUAL((uint32_t)ROBOT_ARM_JOINT_COUNT, fake_state->call_count);
     TEST_ASSERT_UINT32_EQUAL((uint32_t)ROBOT_ARM_JOINT_COUNT, fake_state->read_call_count);
     TEST_ASSERT_UINT32_EQUAL(1U, fake_state->disable_call_count);
@@ -104,8 +114,7 @@ static bool test_boot_self_test_run_robot_direct_pose_uses_runtime_readback_mapp
 
 static bool test_boot_self_test_run_robot_direct_pose_validates_arguments(void)
 {
-    TEST_ASSERT_TRUE(!boot_self_test_run_robot_direct_pose(false, &test_device));
-    TEST_ASSERT_TRUE(!boot_self_test_run_robot_direct_pose(true, 0));
+    TEST_ASSERT_TRUE(!boot_self_test_run_robot_direct_pose(0));
     return true;
 }
 

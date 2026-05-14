@@ -25,6 +25,7 @@ typedef enum
 typedef enum
 {
     BSP_UART_INSTANCE_USART2 = 0,
+    BSP_UART_INSTANCE_USART3,
     BSP_UART_INSTANCE_USART6,
 } bsp_uart_instance_t;
 
@@ -95,6 +96,14 @@ bsp_uart_status_t bsp_uart_write_string(bsp_uart_instance_t instance, const char
  * @retval false: no overflow recorded or instance unsupported
  */
 bool bsp_uart_rx_overflowed(bsp_uart_instance_t instance);
+
+/**
+ * @brief  Query whether a UART receive buffer currently has unread data
+ * @param  instance: UART instance to query
+ * @retval true: at least one unread byte is available
+ * @retval false: no unread byte available or instance unsupported
+ */
+bool bsp_uart_has_rx_data(bsp_uart_instance_t instance);
 
 /**
  * @brief  Clear the receive overflow flag for a UART instance

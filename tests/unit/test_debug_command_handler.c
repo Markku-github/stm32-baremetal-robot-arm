@@ -4,6 +4,7 @@
 
 #include "debug_command_handler.h"
 #include "pca9685_fake.h"
+#include "runtime_status.h"
 
 #define DEBUG_COMMAND_HANDLER_TEST_OUTPUT_CAPACITY 1024U
 #define DEBUG_COMMAND_HANDLER_TEST_PI_F 3.14159265358979323846f
@@ -169,10 +170,34 @@ typedef struct
     uint32_t last_delay_ms;
 } debug_command_handler_delay_test_context_t;
 
+typedef struct
+{
+    bool was_called;
+} debug_command_handler_fault_test_context_t;
+
+static uint32_t test_runtime_status_reset_flags_storage = 0U;
+static runtime_status_fault_kind_t test_runtime_status_fault_kind_storage = RUNTIME_STATUS_FAULT_NONE;
+
 static void reset_output(debug_command_handler_test_output_t *output)
 {
     output->output[0] = '\0';
     output->output_length = 0U;
+}
+
+uint32_t runtime_status_reset_flags(void)
+{
+    return test_runtime_status_reset_flags_storage;
+}
+
+runtime_status_fault_kind_t runtime_status_fault_kind(void)
+{
+    return test_runtime_status_fault_kind_storage;
+}
+
+static void reset_runtime_status_snapshot(void)
+{
+    test_runtime_status_reset_flags_storage = RUNTIME_STATUS_RESET_FLAG_NONE;
+    test_runtime_status_fault_kind_storage = RUNTIME_STATUS_FAULT_NONE;
 }
 
 static void fill_test_pose(robot_arm_pose_t *pose)
@@ -214,10 +239,24 @@ static void delay_ms_for_test(void *context, uint32_t delay_ms)
     delay_context->last_delay_ms = delay_ms;
 }
 
+static bool trigger_fault_for_test(void *context)
+{
+    debug_command_handler_fault_test_context_t *fault_context = (debug_command_handler_fault_test_context_t *)context;
+
+    if (fault_context == 0)
+    {
+        return false;
+    }
+
+    fault_context->was_called = true;
+    return true;
+}
+
 static bool test_empty_command_writes_prompt_only(void)
 {
     debug_command_handler_test_output_t output;
 
+    reset_runtime_status_snapshot();
     reset_output(&output);
     debug_command_handler_execute("", 0, &test_handler_io, &output);
 
@@ -229,12 +268,14 @@ static bool test_help_command_writes_help_and_prompt(void)
 {
     debug_command_handler_test_output_t output;
 
+    reset_runtime_status_snapshot();
     reset_output(&output);
     debug_command_handler_execute("HELP", 0, &test_handler_io, &output);
 
     TEST_ASSERT_STRING_EQUAL(
         "Commands:\r\n"
         "HELP\r\n"
+        "FAULT USAGE\r\n"
         "HOME\r\n"
         "POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n"
         "POSE_DELAY <delay_s> <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n"
@@ -244,15 +285,43 @@ static bool test_help_command_writes_help_and_prompt(void)
     return true;
 }
 
-static bool test_status_requires_ready_robot(void)
+static bool test_status_reports_snapshot_when_not_ready(void)
 {
     debug_command_handler_test_output_t output;
     debug_command_handler_context_t context = { 0 };
 
+    reset_runtime_status_snapshot();
+    test_runtime_status_reset_flags_storage = RUNTIME_STATUS_RESET_FLAG_PIN;
+    test_runtime_status_fault_kind_storage = RUNTIME_STATUS_FAULT_USAGEFAULT;
     reset_output(&output);
     debug_command_handler_execute("STATUS", &context, &test_handler_io, &output);
 
-    TEST_ASSERT_STRING_EQUAL("ERR CONTROLLER_NOT_READY\r\n> ", output.output);
+    TEST_ASSERT_STRING_EQUAL(
+        "STATUS\r\n"
+        "controller=not_ready\r\n"
+        "reset_flags=PINRSTF\r\n"
+        "fault=UsageFault\r\n"
+        "pose=unavailable\r\n"
+        "> ",
+        output.output);
+    return true;
+}
+
+static bool test_fault_usage_command_triggers_fault_hook(void)
+{
+    debug_command_handler_test_output_t output;
+    debug_command_handler_context_t context = { 0 };
+    debug_command_handler_fault_test_context_t fault_context = { false };
+
+    reset_runtime_status_snapshot();
+    context.trigger_fault = trigger_fault_for_test;
+    context.trigger_fault_context = &fault_context;
+
+    reset_output(&output);
+    debug_command_handler_execute("FAULT USAGE", &context, &test_handler_io, &output);
+
+    TEST_ASSERT_TRUE(fault_context.was_called);
+    TEST_ASSERT_STRING_EQUAL("TRIGGER FAULT USAGE\r\n> ", output.output);
     return true;
 }
 
@@ -263,6 +332,7 @@ static bool test_status_reports_current_pose(void)
     robot_arm_t robot;
     robot_arm_pose_t pose;
 
+    reset_runtime_status_snapshot();
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
     fill_test_pose(&pose);
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
@@ -274,6 +344,9 @@ static bool test_status_reports_current_pose(void)
 
     TEST_ASSERT_STRING_EQUAL(
         "STATUS\r\n"
+        "controller=ready\r\n"
+        "reset_flags=none\r\n"
+        "fault=none\r\n"
         "base=10 deg\r\n"
         "shoulder=30 deg\r\n"
         "elbow=120 deg\r\n"
@@ -293,6 +366,7 @@ static bool test_pose_command_updates_robot_and_reports_ok(void)
     robot_arm_pose_t current_pose;
     pca9685_fake_state_t *fake_state;
 
+    reset_runtime_status_snapshot();
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
     context.robot_ready = true;
     context.robot = &robot;
@@ -323,6 +397,7 @@ static bool test_pose_command_recovers_from_single_servo_failure(void)
     robot_arm_pose_t current_pose;
     pca9685_fake_state_t *fake_state;
 
+    reset_runtime_status_snapshot();
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
     context.robot_ready = true;
     context.robot = &robot;
@@ -357,6 +432,7 @@ static bool test_pose_delay_command_waits_then_updates_robot_and_reports_ok(void
     robot_arm_pose_t current_pose;
     pca9685_fake_state_t *fake_state;
 
+    reset_runtime_status_snapshot();
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
     context.robot_ready = true;
     context.robot = &robot;
@@ -391,6 +467,7 @@ static bool test_home_command_resets_pose_and_reports_ok(void)
     robot_arm_pose_t pose;
     pca9685_fake_state_t *fake_state;
 
+    reset_runtime_status_snapshot();
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
     fill_test_pose(&pose);
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
@@ -418,6 +495,7 @@ static bool test_unknown_command_reports_error(void)
 {
     debug_command_handler_test_output_t output;
 
+    reset_runtime_status_snapshot();
     reset_output(&output);
     debug_command_handler_execute("WAVE", 0, &test_handler_io, &output);
 
@@ -434,7 +512,8 @@ int main(void)
     } tests[] = {
         { "empty_command_writes_prompt_only", test_empty_command_writes_prompt_only },
         { "help_command_writes_help_and_prompt", test_help_command_writes_help_and_prompt },
-        { "status_requires_ready_robot", test_status_requires_ready_robot },
+        { "status_reports_snapshot_when_not_ready", test_status_reports_snapshot_when_not_ready },
+        { "fault_usage_command_triggers_fault_hook", test_fault_usage_command_triggers_fault_hook },
         { "status_reports_current_pose", test_status_reports_current_pose },
         { "pose_command_updates_robot_and_reports_ok", test_pose_command_updates_robot_and_reports_ok },
         { "pose_command_recovers_from_single_servo_failure", test_pose_command_recovers_from_single_servo_failure },

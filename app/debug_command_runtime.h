@@ -13,6 +13,8 @@
 #include "pca9685.h"
 #include "robot_arm.h"
 
+bool debug_command_runtime_has_pending_work(bool debug_uart_rx_ready);
+
 void debug_command_runtime_process_input(
 	bool debug_uart_rx_ready,
 	bool robot_ready,

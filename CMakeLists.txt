@@ -12,6 +12,23 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
+set(ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL "DEBUG" CACHE STRING "Minimum compiled runtime log level (DEBUG, INFO, WARNING, ERROR)")
+set_property(CACHE ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL PROPERTY STRINGS DEBUG INFO WARNING ERROR)
+
+string(TOUPPER "${ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL}" ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_NORMALIZED)
+
+if(ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_NORMALIZED STREQUAL "DEBUG")
+    set(ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_DEFINE RUNTIME_LOG_LEVEL_DEBUG)
+elseif(ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_NORMALIZED STREQUAL "INFO")
+    set(ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_DEFINE RUNTIME_LOG_LEVEL_INFO)
+elseif(ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_NORMALIZED STREQUAL "WARNING")
+    set(ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_DEFINE RUNTIME_LOG_LEVEL_WARNING)
+elseif(ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_NORMALIZED STREQUAL "ERROR")
+    set(ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_DEFINE RUNTIME_LOG_LEVEL_ERROR)
+else()
+    message(FATAL_ERROR "Unsupported ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL='${ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL}'. Use DEBUG, INFO, WARNING, or ERROR.")
+endif()
+
 if(ROBOT_ARM_BUILD_HOST_TESTS)
     message(STATUS "Configuring host-native automated tests.")
     enable_testing()
@@ -32,10 +49,14 @@ else()
         app/debug_command_shell.c
         app/main.c
         app/robot_startup.c
+        app/runtime_led.c
+        app/runtime_log.c
         bsp/board_nucleo_f767zi.c
         bsp/bsp_gpio.c
         bsp/bsp_i2c.c
         bsp/bsp_uart.c
+        core/runtime_status.c
+        core/runtime_tick.c
         core/startup.c
         drivers/pca9685/pca9685.c
         drivers/servo/servo.c
@@ -60,6 +81,7 @@ else()
 
     target_compile_definitions(${FIRMWARE_TARGET} PRIVATE
         STM32F767xx
+        RUNTIME_LOG_MIN_LEVEL=${ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_DEFINE}
     )
 
     target_compile_options(${FIRMWARE_TARGET} PRIVATE

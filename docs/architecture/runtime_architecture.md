@@ -157,6 +157,19 @@ The minimum acceptable V1 direction is:
 
 Fault handlers still need to stay simple and bounded. Best-effort capture is the goal, not heavy formatting or recovery logic inside fault context.
 
+## Current LED observability baseline
+
+The early V1 observability baseline now routes basic runtime state indication through the three onboard Nucleo LEDs instead of a hard-coded single-LED heartbeat in `main`.
+
+The current mapping is:
+
+- startup or boot activity: LD2 blinking
+- ready or idle: LD1 blinking
+- degraded or not-ready runtime: LD1 steady on with LD3 blinking
+- latched fault present from boot capture: LD3 steady on
+
+This mapping is intentionally small. It is meant to make startup progress, ready state, degraded runtime, and latched-fault visibility distinguishable before the later timer-driven motion and richer runtime-state work arrives.
+
 ## Engineering-contract policy
 
 The repository should document lightweight runtime criteria, not only behavioral descriptions.

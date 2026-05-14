@@ -29,6 +29,8 @@ typedef struct
     volatile uint32_t RESERVED2;
     volatile uint32_t APB1ENR;
     volatile uint32_t APB2ENR;
+    volatile uint32_t RESERVED3[11];
+    volatile uint32_t CSR;
 } stm32_rcc_registers_t;
 
 typedef struct
@@ -85,18 +87,35 @@ typedef struct
 #define GPIO_PORT_STRIDE 0x00000400UL
 #define I2C1_BASE_ADDRESS 0x40005400UL
 #define USART2_BASE_ADDRESS 0x40004400UL
+#define USART3_BASE_ADDRESS 0x40004800UL
 #define USART6_BASE_ADDRESS 0x40011400UL
 #define NVIC_ISER_BASE_ADDRESS 0xE000E100UL
 #define USART6_IRQ_NUMBER 71U
+#define SYSTICK_CTRL (*(volatile uint32_t *)0xE000E010UL)
+#define SYSTICK_LOAD (*(volatile uint32_t *)0xE000E014UL)
+#define SYSTICK_VAL (*(volatile uint32_t *)0xE000E018UL)
+#define SCB_AIRCR (*(volatile uint32_t *)0xE000ED0CUL)
+#define SCB_CFSR (*(volatile uint32_t *)0xE000ED28UL)
+#define SCB_HFSR (*(volatile uint32_t *)0xE000ED2CUL)
+#define SCB_MMFAR (*(volatile uint32_t *)0xE000ED34UL)
+#define SCB_BFAR (*(volatile uint32_t *)0xE000ED38UL)
 #define SCB_CPACR (*(volatile uint32_t *)0xE000ED88UL)
 
 #define RCC ((stm32_rcc_registers_t *)RCC_BASE_ADDRESS)
 #define FLASH ((stm32_flash_registers_t *)FLASH_BASE_ADDRESS)
 #define I2C1 ((stm32_i2c_registers_t *)I2C1_BASE_ADDRESS)
 #define USART2 ((stm32_usart_registers_t *)USART2_BASE_ADDRESS)
+#define USART3 ((stm32_usart_registers_t *)USART3_BASE_ADDRESS)
 #define USART6 ((stm32_usart_registers_t *)USART6_BASE_ADDRESS)
 
 #define SCB_CPACR_CP10_CP11_FULL_ACCESS (0xFUL << 20)
+#define SYSTICK_CTRL_ENABLE (1UL << 0)
+#define SYSTICK_CTRL_TICKINT (1UL << 1)
+#define SYSTICK_CTRL_CLKSOURCE (1UL << 2)
+#define SYSTICK_LOAD_RELOAD_MASK 0x00FFFFFFUL
+#define SCB_AIRCR_PRIGROUP_MASK (0x7UL << 8)
+#define SCB_AIRCR_VECTKEY_WRITE (0x5FAUL << 16)
+#define SCB_AIRCR_SYSRESETREQ (1UL << 2)
 
 #define RCC_CR_HSION (1UL << 0)
 #define RCC_CR_HSIRDY (1UL << 1)
@@ -110,7 +129,17 @@ typedef struct
 #define RCC_AHB1ENR_GPIO_PORT_ENABLE(port_index) (1UL << (port_index))
 #define RCC_APB1ENR_I2C1EN (1UL << 21)
 #define RCC_APB1ENR_USART2EN (1UL << 17)
+#define RCC_APB1ENR_USART3EN (1UL << 18)
 #define RCC_APB2ENR_USART6EN (1UL << 5)
+
+#define RCC_CSR_RMVF (1UL << 24)
+#define RCC_CSR_BORRSTF (1UL << 25)
+#define RCC_CSR_PINRSTF (1UL << 26)
+#define RCC_CSR_PORRSTF (1UL << 27)
+#define RCC_CSR_SFTRSTF (1UL << 28)
+#define RCC_CSR_IWDGRSTF (1UL << 29)
+#define RCC_CSR_WWDGRSTF (1UL << 30)
+#define RCC_CSR_LPWRRSTF (1UL << 31)
 
 #define I2C_CR1_PE (1UL << 0)
 
@@ -156,7 +185,7 @@ typedef struct
  */
 static inline stm32_gpio_registers_t *stm32_gpio_port(uint32_t port_index)
 {
-    return (stm32_gpio_registers_t *)(GPIOA_BASE_ADDRESS + (GPIO_PORT_STRIDE * port_index));
+    return (stm32_gpio_registers_t *)(uintptr_t)(GPIOA_BASE_ADDRESS + (GPIO_PORT_STRIDE * port_index));
 }
 
 /**

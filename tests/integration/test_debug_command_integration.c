@@ -5,6 +5,7 @@
 #include "debug_command_handler.h"
 #include "debug_command_shell.h"
 #include "pca9685_fake.h"
+#include "runtime_status.h"
 
 #define DEBUG_COMMAND_INTEGRATION_OUTPUT_CAPACITY 2048U
 #define DEBUG_COMMAND_INTEGRATION_PI_F 3.14159265358979323846f
@@ -33,7 +34,11 @@ typedef struct
     uint32_t executed_command_count;
     uint32_t delay_call_count;
     uint32_t last_delay_ms;
+    uint32_t fault_trigger_count;
 } debug_command_integration_context_t;
+
+static uint32_t test_runtime_status_reset_flags_storage = 0U;
+static runtime_status_fault_kind_t test_runtime_status_fault_kind_storage = RUNTIME_STATUS_FAULT_NONE;
 
 static const pca9685_device_t test_device = {
     .instance = BSP_I2C_INSTANCE_I2C1,
@@ -165,6 +170,22 @@ static void test_write_prompt(void *context)
     append_text(&test_context->output, "> ");
 }
 
+uint32_t runtime_status_reset_flags(void)
+{
+    return test_runtime_status_reset_flags_storage;
+}
+
+runtime_status_fault_kind_t runtime_status_fault_kind(void)
+{
+    return test_runtime_status_fault_kind_storage;
+}
+
+static void reset_runtime_status_snapshot(void)
+{
+    test_runtime_status_reset_flags_storage = RUNTIME_STATUS_RESET_FLAG_NONE;
+    test_runtime_status_fault_kind_storage = RUNTIME_STATUS_FAULT_NONE;
+}
+
 static const debug_command_handler_io_t test_handler_io = {
     .write_string = test_write_string,
     .write_byte = test_write_byte,
@@ -177,6 +198,19 @@ static void integration_delay_ms(void *context, uint32_t delay_ms)
 
     test_context->delay_call_count++;
     test_context->last_delay_ms = delay_ms;
+}
+
+static bool integration_trigger_fault(void *context)
+{
+    debug_command_integration_context_t *test_context = (debug_command_integration_context_t *)context;
+
+    if (test_context == 0)
+    {
+        return false;
+    }
+
+    test_context->fault_trigger_count++;
+    return true;
 }
 
 static void shell_execute_command(void *context, const char *command_line)
@@ -196,17 +230,21 @@ static const debug_command_shell_io_t test_shell_io = {
 
 static void reset_test_context(debug_command_integration_context_t *context)
 {
+    reset_runtime_status_snapshot();
     context->output.output[0] = '\0';
     context->output.output_length = 0U;
     context->executed_command_count = 0U;
     context->delay_call_count = 0U;
     context->last_delay_ms = 0U;
+    context->fault_trigger_count = 0U;
     context->handler_context.robot_ready = false;
     context->handler_context.robot = 0;
     context->handler_context.recover_robot = 0;
     context->handler_context.recover_context = 0;
     context->handler_context.delay_ms = 0;
     context->handler_context.delay_context = 0;
+    context->handler_context.trigger_fault = 0;
+    context->handler_context.trigger_fault_context = 0;
 }
 
 static void feed_text(
@@ -240,6 +278,7 @@ static bool test_help_command_runs_through_shell_and_handler(void)
         "HELP\r\n"
         "Commands:\r\n"
         "HELP\r\n"
+        "FAULT USAGE\r\n"
         "HOME\r\n"
         "POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n"
         "POSE_DELAY <delay_s> <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n"
@@ -256,6 +295,8 @@ static bool test_status_reports_not_ready_through_shell_and_handler(void)
 
     debug_command_shell_init(&shell);
     reset_test_context(&context);
+    test_runtime_status_reset_flags_storage = RUNTIME_STATUS_RESET_FLAG_PIN;
+    test_runtime_status_fault_kind_storage = RUNTIME_STATUS_FAULT_USAGEFAULT;
     context.handler_context.robot_ready = false;
     context.handler_context.robot = 0;
 
@@ -264,7 +305,11 @@ static bool test_status_reports_not_ready_through_shell_and_handler(void)
     TEST_ASSERT_UINT32_EQUAL(1U, context.executed_command_count);
     TEST_ASSERT_STRING_EQUAL(
         "STATUS\r\n"
-        "ERR CONTROLLER_NOT_READY\r\n"
+        "STATUS\r\n"
+        "controller=not_ready\r\n"
+        "reset_flags=PINRSTF\r\n"
+        "fault=UsageFault\r\n"
+        "pose=unavailable\r\n"
         "> ",
         context.output.output);
     return true;
@@ -286,6 +331,28 @@ static bool test_unknown_command_reports_error_through_shell_and_handler(void)
     TEST_ASSERT_STRING_EQUAL(
         "FOO\r\n"
         "ERR UNKNOWN_COMMAND\r\n"
+        "> ",
+        context.output.output);
+    return true;
+}
+
+static bool test_fault_usage_runs_through_shell_and_handler(void)
+{
+    debug_command_shell_t shell;
+    debug_command_integration_context_t context;
+
+    debug_command_shell_init(&shell);
+    reset_test_context(&context);
+    context.handler_context.trigger_fault = integration_trigger_fault;
+    context.handler_context.trigger_fault_context = &context;
+
+    feed_text(&shell, &context, "FAULT USAGE\r");
+
+    TEST_ASSERT_UINT32_EQUAL(1U, context.executed_command_count);
+    TEST_ASSERT_UINT32_EQUAL(1U, context.fault_trigger_count);
+    TEST_ASSERT_STRING_EQUAL(
+        "FAULT USAGE\r\n"
+        "TRIGGER FAULT USAGE\r\n"
         "> ",
         context.output.output);
     return true;
@@ -326,6 +393,9 @@ static bool test_pose_and_status_run_through_shell_handler_and_robot(void)
         "> "
         "STATUS\r\n"
         "STATUS\r\n"
+        "controller=ready\r\n"
+        "reset_flags=none\r\n"
+        "fault=none\r\n"
         "base=10 deg\r\n"
         "shoulder=30 deg\r\n"
         "elbow=120 deg\r\n"
@@ -417,6 +487,9 @@ static bool test_pose_delay_runs_through_shell_handler_and_robot(void)
         "> "
         "STATUS\r\n"
         "STATUS\r\n"
+        "controller=ready\r\n"
+        "reset_flags=none\r\n"
+        "fault=none\r\n"
         "base=10 deg\r\n"
         "shoulder=30 deg\r\n"
         "elbow=120 deg\r\n"
@@ -443,6 +516,11 @@ int main(void)
     }
 
     if (!test_unknown_command_reports_error_through_shell_and_handler())
+    {
+        failed_count++;
+    }
+
+    if (!test_fault_usage_runs_through_shell_and_handler())
     {
         failed_count++;
     }
