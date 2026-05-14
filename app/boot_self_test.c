@@ -10,9 +10,9 @@
 #include <stdint.h>
 
 #include "board_nucleo_f767zi.h"
-#include "debug_console.h"
 #include "pca9685.h"
 #include "robot_arm.h"
+#include "runtime_log.h"
 
 #define BOOT_SELF_TEST_FREQUENCY_HZ 50U
 #define BOOT_SELF_TEST_CHANNEL 0U
@@ -79,7 +79,7 @@ static void report_robot_self_test_failure(const pca9685_device_t *device, const
         (void)pca9685_disable_all_outputs(device);
     }
 
-    board_nucleo_f767zi_write_debug_string(message);
+    runtime_log_write_raw(message);
 }
 
 static void report_robot_pose_readback_failure(
@@ -104,11 +104,11 @@ static bool finalize_robot_self_test(
 {
     if ((device == 0) || (pca9685_disable_all_outputs(device) != PCA9685_OK))
     {
-        board_nucleo_f767zi_write_debug_string(output_disable_failure_message);
+        runtime_log_write_raw(output_disable_failure_message);
         return false;
     }
 
-    board_nucleo_f767zi_write_debug_string(success_message);
+    runtime_log_write_raw(success_message);
     return true;
 }
 
@@ -163,15 +163,15 @@ static robot_pose_readback_status_t write_robot_pose_off_counts(
 
         if (joint_index > 0U)
         {
-            board_nucleo_f767zi_write_debug_string(", ");
+            runtime_log_write_raw(", ");
         }
 
-        board_nucleo_f767zi_write_debug_string(servo->name);
-        board_nucleo_f767zi_write_debug_string("=0x");
-        debug_console_write_hex_word(off_count);
+        runtime_log_write_raw(servo->name);
+        runtime_log_write_raw("=0x");
+        runtime_log_write_hex_word(off_count);
     }
 
-    board_nucleo_f767zi_write_debug_string("\r\n");
+    runtime_log_write_raw("\r\n");
     return ROBOT_POSE_READBACK_OK;
 }
 
@@ -191,27 +191,27 @@ bool boot_self_test_run_pca9685(bool debug_uart_ready, pca9685_device_t *device)
 
     if (board_nucleo_f767zi_init_pca9685_i2c() != BSP_I2C_OK)
     {
-        board_nucleo_f767zi_write_debug_string("I2C1 init failed for PCA9685 self-test.\r\n");
+        runtime_log_write_raw("I2C1 init failed for PCA9685 self-test.\r\n");
         return false;
     }
 
-    board_nucleo_f767zi_write_debug_string("I2C1 ready. Running PCA9685 driver self-test at 0x40...\r\n");
+    runtime_log_write_raw("I2C1 ready. Running PCA9685 driver self-test at 0x40...\r\n");
 
     if (pca9685_init(device, BSP_I2C_INSTANCE_I2C1, PCA9685_I2C_ADDRESS_DEFAULT) != PCA9685_OK)
     {
-        board_nucleo_f767zi_write_debug_string("PCA9685 init failed. Check address, pull-ups, and wiring.\r\n");
+        runtime_log_write_raw("PCA9685 init failed. Check address, pull-ups, and wiring.\r\n");
         return false;
     }
 
     if (pca9685_set_pwm_frequency(device, BOOT_SELF_TEST_FREQUENCY_HZ) != PCA9685_OK)
     {
-        board_nucleo_f767zi_write_debug_string("PCA9685 frequency setup failed.\r\n");
+        runtime_log_write_raw("PCA9685 frequency setup failed.\r\n");
         return false;
     }
 
     if (pca9685_set_channel_pulse_us(device, BOOT_SELF_TEST_CHANNEL, BOOT_SELF_TEST_PULSE_US) != PCA9685_OK)
     {
-        board_nucleo_f767zi_write_debug_string("PCA9685 pulse-width write failed.\r\n");
+        runtime_log_write_raw("PCA9685 pulse-width write failed.\r\n");
         return false;
     }
 
@@ -220,41 +220,41 @@ bool boot_self_test_run_pca9685(bool debug_uart_ready, pca9685_device_t *device)
         || (pca9685_read_register(device->instance, device->address, PCA9685_REGISTER_PRESCALE, &prescale_value) != PCA9685_OK)
         || (pca9685_read_channel_pwm(device, BOOT_SELF_TEST_CHANNEL, &on_count, &off_count) != PCA9685_OK))
     {
-        board_nucleo_f767zi_write_debug_string("PCA9685 readback failed after self-test writes.\r\n");
+        runtime_log_write_raw("PCA9685 readback failed after self-test writes.\r\n");
         return false;
     }
 
     expected_off_count = pca9685_self_test_expected_off_count(device->pwm_frequency_hz, BOOT_SELF_TEST_PULSE_US);
 
-    board_nucleo_f767zi_write_debug_string("PCA9685 MODE1 = 0x");
-    debug_console_write_hex_byte(mode1_value);
-    board_nucleo_f767zi_write_debug_string(", MODE2 = 0x");
-    debug_console_write_hex_byte(mode2_value);
-    board_nucleo_f767zi_write_debug_string("\r\n");
+    runtime_log_write_raw("PCA9685 MODE1 = 0x");
+    runtime_log_write_hex_byte(mode1_value);
+    runtime_log_write_raw(", MODE2 = 0x");
+    runtime_log_write_hex_byte(mode2_value);
+    runtime_log_write_raw("\r\n");
 
-    board_nucleo_f767zi_write_debug_string("PCA9685 PRESCALE = 0x");
-    debug_console_write_hex_byte(prescale_value);
-    board_nucleo_f767zi_write_debug_string(" (expected about 0x79 for 50 Hz @ 25 MHz)\r\n");
+    runtime_log_write_raw("PCA9685 PRESCALE = 0x");
+    runtime_log_write_hex_byte(prescale_value);
+    runtime_log_write_raw(" (expected about 0x79 for 50 Hz @ 25 MHz)\r\n");
 
-    board_nucleo_f767zi_write_debug_string("PCA9685 CH0 ON = 0x");
-    debug_console_write_hex_word(on_count);
-    board_nucleo_f767zi_write_debug_string(", OFF = 0x");
-    debug_console_write_hex_word(off_count);
-    board_nucleo_f767zi_write_debug_string("\r\n");
+    runtime_log_write_raw("PCA9685 CH0 ON = 0x");
+    runtime_log_write_hex_word(on_count);
+    runtime_log_write_raw(", OFF = 0x");
+    runtime_log_write_hex_word(off_count);
+    runtime_log_write_raw("\r\n");
 
     if ((on_count != 0U) || (off_count != expected_off_count))
     {
-        board_nucleo_f767zi_write_debug_string("PCA9685 register readback mismatch.\r\n");
+        runtime_log_write_raw("PCA9685 register readback mismatch.\r\n");
         return false;
     }
 
     if (pca9685_disable_all_outputs(device) != PCA9685_OK)
     {
-        board_nucleo_f767zi_write_debug_string("PCA9685 output disable failed after self-test.\r\n");
+        runtime_log_write_raw("PCA9685 output disable failed after self-test.\r\n");
         return false;
     }
 
-    board_nucleo_f767zi_write_debug_string("PCA9685 driver self-test OK. Outputs returned to the disabled state. External servo power is not required for this register-level check.\r\n");
+    runtime_log_write_raw("PCA9685 driver self-test OK. Outputs returned to the disabled state. External servo power is not required for this register-level check.\r\n");
     return true;
 }
 
@@ -269,11 +269,11 @@ bool boot_self_test_run_robot_home(bool debug_uart_ready, pca9685_device_t *devi
         return false;
     }
 
-    board_nucleo_f767zi_write_debug_string("Running robot HOME integration self-test...\r\n");
+    runtime_log_write_raw("Running robot HOME integration self-test...\r\n");
 
     if (robot_arm_init(&robot, device) != ROBOT_ARM_OK)
     {
-        board_nucleo_f767zi_write_debug_string("Robot servo baseline init failed.\r\n");
+        runtime_log_write_raw("Robot servo baseline init failed.\r\n");
         return false;
     }
 
@@ -289,7 +289,7 @@ bool boot_self_test_run_robot_home(bool debug_uart_ready, pca9685_device_t *devi
         return false;
     }
 
-    board_nucleo_f767zi_write_debug_string("Robot HOME OFF counts: ");
+    runtime_log_write_raw("Robot HOME OFF counts: ");
     readback_status = write_robot_pose_off_counts(&robot, &home_pose, device);
 
     if (readback_status != ROBOT_POSE_READBACK_OK)
@@ -320,11 +320,11 @@ bool boot_self_test_run_robot_direct_pose(bool debug_uart_ready, pca9685_device_
         return false;
     }
 
-    board_nucleo_f767zi_write_debug_string("Running robot direct pose integration self-test...\r\n");
+    runtime_log_write_raw("Running robot direct pose integration self-test...\r\n");
 
     if (robot_arm_init(&robot, device) != ROBOT_ARM_OK)
     {
-        board_nucleo_f767zi_write_debug_string("Robot servo baseline init failed for direct pose test.\r\n");
+        runtime_log_write_raw("Robot servo baseline init failed for direct pose test.\r\n");
         return false;
     }
 
@@ -342,7 +342,7 @@ bool boot_self_test_run_robot_direct_pose(bool debug_uart_ready, pca9685_device_
         return false;
     }
 
-    board_nucleo_f767zi_write_debug_string("Robot direct pose OFF counts: ");
+    runtime_log_write_raw("Robot direct pose OFF counts: ");
     readback_status = write_robot_pose_off_counts(&robot, &current_pose, device);
 
     if (readback_status != ROBOT_POSE_READBACK_OK)

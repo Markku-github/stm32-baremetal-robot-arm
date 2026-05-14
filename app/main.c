@@ -15,6 +15,7 @@
 #include "pca9685.h"
 #include "robot_arm.h"
 #include "robot_startup.h"
+#include "runtime_log.h"
 
 #define MAIN_LOOP_DELAY_CYCLES 20000U
 #define MAIN_LED_TOGGLE_TICKS 100U
@@ -51,12 +52,19 @@ int main(void)
         }
     }
 
+    const bool log_uart_ready = runtime_log_init();
     const bool debug_uart_ready = board_nucleo_f767zi_init_debug_uart() == BSP_UART_OK;
     const bool debug_uart_rx_ready = debug_uart_ready && (board_nucleo_f767zi_enable_debug_uart_rx_interrupt() == BSP_UART_OK);
 
+    runtime_log_enable_debug_fallback(!log_uart_ready && debug_uart_ready);
+
+    if (log_uart_ready || debug_uart_ready)
+    {
+        runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "Booting...");
+    }
+
     if (debug_uart_ready)
     {
-        board_nucleo_f767zi_write_debug_string("Booting...\r\n");
         if (boot_self_test_run_pca9685(debug_uart_ready, &pca9685_device))
         {
             const bool robot_home_self_test_ok = boot_self_test_run_robot_home(debug_uart_ready, &pca9685_device);
@@ -72,20 +80,20 @@ int main(void)
                 if (robot_startup_status == ROBOT_STARTUP_OK)
                 {
                     robot_ready = true;
-                    board_nucleo_f767zi_write_debug_string("Robot runtime ready at HOME.\r\n");
+                    runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "Robot runtime ready at HOME.");
                 }
                 else if (robot_startup_status == ROBOT_STARTUP_ERR_HOME)
                 {
-                    board_nucleo_f767zi_write_debug_string("Robot startup HOME failed.\r\n");
+                    runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot startup HOME failed.");
                 }
                 else
                 {
-                    board_nucleo_f767zi_write_debug_string("Robot runtime init failed.\r\n");
+                    runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot runtime init failed.");
                 }
             }
             else
             {
-                board_nucleo_f767zi_write_debug_string("Robot self-test sequence failed. Controller will remain not ready.\r\n");
+                runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "Robot self-test sequence failed. Controller will remain not ready.");
             }
         }
 
@@ -93,18 +101,18 @@ int main(void)
         {
             if (robot_ready)
             {
-                board_nucleo_f767zi_write_debug_string("USART6 RX command shell ready. Type HELP.\r\n");
+                runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "USART6 RX command shell ready. Type HELP.");
             }
             else
             {
-                board_nucleo_f767zi_write_debug_string("USART6 RX command shell ready for diagnostics. Controller not ready.\r\n");
+                runtime_log_write_line(RUNTIME_LOG_LEVEL_WARNING, "USART6 RX command shell ready for diagnostics. Controller not ready.");
             }
 
             debug_console_write_prompt();
         }
         else
         {
-            board_nucleo_f767zi_write_debug_string("USART6 RX interrupt setup failed.\r\n");
+            runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "USART6 RX interrupt setup failed.");
         }
     }
 

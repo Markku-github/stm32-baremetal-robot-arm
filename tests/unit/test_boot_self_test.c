@@ -50,7 +50,17 @@ bsp_i2c_status_t board_nucleo_f767zi_init_pca9685_i2c(void)
     return BSP_I2C_OK;
 }
 
+bsp_uart_status_t board_nucleo_f767zi_init_log_uart(void)
+{
+    return BSP_UART_OK;
+}
+
 void board_nucleo_f767zi_write_debug_string(const char *message)
+{
+    (void)message;
+}
+
+void board_nucleo_f767zi_write_log_string(const char *message)
 {
     (void)message;
 }

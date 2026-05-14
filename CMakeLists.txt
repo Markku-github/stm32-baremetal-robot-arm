@@ -32,6 +32,7 @@ else()
         app/debug_command_shell.c
         app/main.c
         app/robot_startup.c
+        app/runtime_log.c
         bsp/board_nucleo_f767zi.c
         bsp/bsp_gpio.c
         bsp/bsp_i2c.c

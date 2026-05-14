@@ -55,6 +55,7 @@ add_executable(${BOOT_SELF_TEST_UNIT_TEST_TARGET}
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_boot_self_test.c
     ${CMAKE_CURRENT_SOURCE_DIR}/fakes/pca9685_fake.c
     ${CMAKE_SOURCE_DIR}/app/boot_self_test.c
+    ${CMAKE_SOURCE_DIR}/app/runtime_log.c
     ${CMAKE_SOURCE_DIR}/drivers/servo/servo.c
     ${CMAKE_SOURCE_DIR}/robot/robot_arm.c
     ${CMAKE_SOURCE_DIR}/robot/robot_arm_joint_calibration.c
