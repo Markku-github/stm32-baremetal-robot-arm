@@ -12,6 +12,7 @@ These rules apply to current and future branches unless a concrete exception is 
 
 - Catch regressions close to the edited behavior.
 - Prefer automated validation over manual validation whenever the project architecture allows it.
+- Run targeted automated validation before manual hardware validation whenever practical.
 - Preserve manual hardware validation for target-specific behavior that cannot yet be automated safely or economically.
 - Keep test evidence honest: distinguish unit, integration, system, and manual validation clearly.
 - Use the test pyramid as the default shape of the test suite.
@@ -101,7 +102,32 @@ Every manual test procedure should state:
 - expected UART output or physical behavior
 - failure symptoms and safe recovery steps
 
+For firmware changes that can be checked safely on target hardware, flash the latest build before treating the manual check as representative.
+
+If a later manual check finds a defect that earlier automation missed, fix the defect and strengthen the relevant automated coverage before considering the slice closed.
+
 Manual testing is not a waiver from automation forever. It is a documented fallback until an automated path becomes practical.
+
+## Current low-risk target shell smoke checks
+
+For the current V1 observability and control-foundation work, keep one small non-destructive shell smoke path available on the real target even before broader board-assisted automation exists.
+
+The current preferred check is:
+
+- boot the firmware until the controller either reaches the normal ready state or remains explicitly not ready
+- run `STATUS` from the USART6 shell to capture a focused controller snapshot
+- if the controller is ready, run `POSE_DELAY 3 90 0 180 180 90 0` as the default delay-path smoke check because it reissues the HOME pose after a short wait
+- run `STATUS` again after the delayed command completes
+
+Expected behavior for this smoke path:
+
+- `STATUS` should always return a snapshot instead of collapsing to a generic not-ready error
+- the snapshot should include controller readiness plus the captured reset and fault fields
+- pose lines should appear only when the controller is ready and the current pose is readable
+- in the normal ready path, `POSE_DELAY 3 90 0 180 180 90 0` should print `WAIT POSE 3 s` immediately and `OK POSE_DELAY` after the delay expires
+- the follow-up `STATUS` should still report the expected HOME pose values after that ready-state delay check
+
+This smoke path may be run with external servo power off when the goal is only to validate shell behavior, runtime timing, and controller visibility rather than powered motion quality.
 
 ## Branch exit criteria
 
