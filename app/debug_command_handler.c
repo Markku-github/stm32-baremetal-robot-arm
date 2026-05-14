@@ -102,6 +102,7 @@ static void debug_command_handler_write_help_text(const debug_command_handler_io
 {
     io->write_string(io_context, "Commands:\r\n");
     io->write_string(io_context, "HELP\r\n");
+    io->write_string(io_context, "FAULT USAGE\r\n");
     io->write_string(io_context, "HOME\r\n");
     io->write_string(io_context, "POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n");
     io->write_string(io_context, "POSE_DELAY <delay_s> <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n");
@@ -161,6 +162,13 @@ static bool debug_command_handler_try_recover_robot(const debug_command_handler_
 static bool debug_command_handler_has_delay_support(const debug_command_handler_context_t *command_context)
 {
     return (command_context != 0) && (command_context->delay_ms != 0);
+}
+
+static bool debug_command_handler_trigger_usage_fault(const debug_command_handler_context_t *command_context)
+{
+    return (command_context != 0)
+        && (command_context->trigger_fault != 0)
+        && command_context->trigger_fault(command_context->trigger_fault_context);
 }
 
 static void debug_command_handler_wait_before_pose(
@@ -269,6 +277,30 @@ void debug_command_handler_execute(
         }
 
         io->write_prompt(io_context);
+        return;
+    }
+
+    if (debug_command_parser_matches_name_with_arguments(command_line, "FAULT", &arguments))
+    {
+        const char *fault_arguments = 0;
+
+        if (!debug_command_parser_matches_name_with_arguments(arguments, "USAGE", &fault_arguments)
+            || ((fault_arguments != 0) && (fault_arguments[0] != '\0')))
+        {
+            io->write_string(io_context, "ERR INVALID_ARGUMENT\r\n");
+            io->write_prompt(io_context);
+            return;
+        }
+
+        io->write_string(io_context, "TRIGGER FAULT USAGE\r\n");
+
+        if (!debug_command_handler_trigger_usage_fault(command_context))
+        {
+            io->write_string(io_context, "ERR COMMAND_FAILED\r\n");
+        }
+
+        io->write_prompt(io_context);
+
         return;
     }
 

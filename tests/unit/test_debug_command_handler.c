@@ -169,6 +169,11 @@ typedef struct
     uint32_t last_delay_ms;
 } debug_command_handler_delay_test_context_t;
 
+typedef struct
+{
+    bool was_called;
+} debug_command_handler_fault_test_context_t;
+
 static void reset_output(debug_command_handler_test_output_t *output)
 {
     output->output[0] = '\0';
@@ -214,6 +219,19 @@ static void delay_ms_for_test(void *context, uint32_t delay_ms)
     delay_context->last_delay_ms = delay_ms;
 }
 
+static bool trigger_fault_for_test(void *context)
+{
+    debug_command_handler_fault_test_context_t *fault_context = (debug_command_handler_fault_test_context_t *)context;
+
+    if (fault_context == 0)
+    {
+        return false;
+    }
+
+    fault_context->was_called = true;
+    return true;
+}
+
 static bool test_empty_command_writes_prompt_only(void)
 {
     debug_command_handler_test_output_t output;
@@ -235,6 +253,7 @@ static bool test_help_command_writes_help_and_prompt(void)
     TEST_ASSERT_STRING_EQUAL(
         "Commands:\r\n"
         "HELP\r\n"
+        "FAULT USAGE\r\n"
         "HOME\r\n"
         "POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n"
         "POSE_DELAY <delay_s> <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n"
@@ -253,6 +272,23 @@ static bool test_status_requires_ready_robot(void)
     debug_command_handler_execute("STATUS", &context, &test_handler_io, &output);
 
     TEST_ASSERT_STRING_EQUAL("ERR CONTROLLER_NOT_READY\r\n> ", output.output);
+    return true;
+}
+
+static bool test_fault_usage_command_triggers_fault_hook(void)
+{
+    debug_command_handler_test_output_t output;
+    debug_command_handler_context_t context = { 0 };
+    debug_command_handler_fault_test_context_t fault_context = { false };
+
+    context.trigger_fault = trigger_fault_for_test;
+    context.trigger_fault_context = &fault_context;
+
+    reset_output(&output);
+    debug_command_handler_execute("FAULT USAGE", &context, &test_handler_io, &output);
+
+    TEST_ASSERT_TRUE(fault_context.was_called);
+    TEST_ASSERT_STRING_EQUAL("TRIGGER FAULT USAGE\r\n> ", output.output);
     return true;
 }
 
@@ -435,6 +471,7 @@ int main(void)
         { "empty_command_writes_prompt_only", test_empty_command_writes_prompt_only },
         { "help_command_writes_help_and_prompt", test_help_command_writes_help_and_prompt },
         { "status_requires_ready_robot", test_status_requires_ready_robot },
+        { "fault_usage_command_triggers_fault_hook", test_fault_usage_command_triggers_fault_hook },
         { "status_reports_current_pose", test_status_reports_current_pose },
         { "pose_command_updates_robot_and_reports_ok", test_pose_command_updates_robot_and_reports_ok },
         { "pose_command_recovers_from_single_servo_failure", test_pose_command_recovers_from_single_servo_failure },

@@ -33,6 +33,7 @@ typedef struct
     uint32_t executed_command_count;
     uint32_t delay_call_count;
     uint32_t last_delay_ms;
+    uint32_t fault_trigger_count;
 } debug_command_integration_context_t;
 
 static const pca9685_device_t test_device = {
@@ -179,6 +180,19 @@ static void integration_delay_ms(void *context, uint32_t delay_ms)
     test_context->last_delay_ms = delay_ms;
 }
 
+static bool integration_trigger_fault(void *context)
+{
+    debug_command_integration_context_t *test_context = (debug_command_integration_context_t *)context;
+
+    if (test_context == 0)
+    {
+        return false;
+    }
+
+    test_context->fault_trigger_count++;
+    return true;
+}
+
 static void shell_execute_command(void *context, const char *command_line)
 {
     debug_command_integration_context_t *test_context = (debug_command_integration_context_t *)context;
@@ -201,12 +215,15 @@ static void reset_test_context(debug_command_integration_context_t *context)
     context->executed_command_count = 0U;
     context->delay_call_count = 0U;
     context->last_delay_ms = 0U;
+    context->fault_trigger_count = 0U;
     context->handler_context.robot_ready = false;
     context->handler_context.robot = 0;
     context->handler_context.recover_robot = 0;
     context->handler_context.recover_context = 0;
     context->handler_context.delay_ms = 0;
     context->handler_context.delay_context = 0;
+    context->handler_context.trigger_fault = 0;
+    context->handler_context.trigger_fault_context = 0;
 }
 
 static void feed_text(
@@ -240,6 +257,7 @@ static bool test_help_command_runs_through_shell_and_handler(void)
         "HELP\r\n"
         "Commands:\r\n"
         "HELP\r\n"
+        "FAULT USAGE\r\n"
         "HOME\r\n"
         "POSE <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n"
         "POSE_DELAY <delay_s> <base_deg> <shoulder_deg> <elbow_deg> <wrist_tilt_deg> <wrist_rotate_deg> <gripper_deg>\r\n"
@@ -286,6 +304,28 @@ static bool test_unknown_command_reports_error_through_shell_and_handler(void)
     TEST_ASSERT_STRING_EQUAL(
         "FOO\r\n"
         "ERR UNKNOWN_COMMAND\r\n"
+        "> ",
+        context.output.output);
+    return true;
+}
+
+static bool test_fault_usage_runs_through_shell_and_handler(void)
+{
+    debug_command_shell_t shell;
+    debug_command_integration_context_t context;
+
+    debug_command_shell_init(&shell);
+    reset_test_context(&context);
+    context.handler_context.trigger_fault = integration_trigger_fault;
+    context.handler_context.trigger_fault_context = &context;
+
+    feed_text(&shell, &context, "FAULT USAGE\r");
+
+    TEST_ASSERT_UINT32_EQUAL(1U, context.executed_command_count);
+    TEST_ASSERT_UINT32_EQUAL(1U, context.fault_trigger_count);
+    TEST_ASSERT_STRING_EQUAL(
+        "FAULT USAGE\r\n"
+        "TRIGGER FAULT USAGE\r\n"
         "> ",
         context.output.output);
     return true;
@@ -443,6 +483,11 @@ int main(void)
     }
 
     if (!test_unknown_command_reports_error_through_shell_and_handler())
+    {
+        failed_count++;
+    }
+
+    if (!test_fault_usage_runs_through_shell_and_handler())
     {
         failed_count++;
     }

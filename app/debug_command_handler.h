@@ -18,6 +18,7 @@ typedef void (*debug_command_handler_write_byte_fn)(void *context, uint8_t byte)
 typedef void (*debug_command_handler_write_prompt_fn)(void *context);
 typedef bool (*debug_command_handler_recover_robot_fn)(void *context, robot_arm_t *robot);
 typedef void (*debug_command_handler_delay_ms_fn)(void *context, uint32_t delay_ms);
+typedef bool (*debug_command_handler_trigger_fault_fn)(void *context);
 
 typedef struct
 {
@@ -34,6 +35,8 @@ typedef struct
     void *recover_context;
     debug_command_handler_delay_ms_fn delay_ms;
     void *delay_context;
+    debug_command_handler_trigger_fault_fn trigger_fault;
+    void *trigger_fault_context;
 } debug_command_handler_context_t;
 
 void debug_command_handler_execute(
