@@ -14,11 +14,10 @@
 #include "debug_command_handler.h"
 #include "debug_command_shell.h"
 #include "pca9685.h"
+#include "runtime_tick.h"
 #include "runtime_status.h"
-#include "system_stm32f7xx.h"
 
 #define DEBUG_COMMAND_RUNTIME_PCA9685_PWM_FREQUENCY_HZ 50U
-#define DEBUG_COMMAND_RUNTIME_BUSY_WAIT_DIVISOR 4000U
 
 typedef struct
 {
@@ -31,30 +30,14 @@ static const debug_command_handler_io_t debug_command_handler_io = {
     .write_prompt = debug_console_write_prompt_adapter,
 };
 
-static void debug_command_runtime_busy_wait_cycles(volatile uint32_t cycles)
-{
-    while (cycles > 0U)
-    {
-        cycles--;
-    }
-}
-
 static void debug_command_runtime_delay_ms(void *context, uint32_t delay_ms)
 {
-    uint32_t milliseconds_remaining = delay_ms;
-    uint32_t cycles_per_millisecond = SystemCoreClock / DEBUG_COMMAND_RUNTIME_BUSY_WAIT_DIVISOR;
+    const uint32_t start_ms = runtime_tick_now_ms();
 
     (void)context;
 
-    if (cycles_per_millisecond == 0U)
+    while (!runtime_tick_deadline_reached(start_ms, delay_ms, runtime_tick_now_ms()))
     {
-        cycles_per_millisecond = 1U;
-    }
-
-    while (milliseconds_remaining > 0U)
-    {
-        debug_command_runtime_busy_wait_cycles(cycles_per_millisecond);
-        milliseconds_remaining--;
     }
 }
 
@@ -120,6 +103,17 @@ static const debug_command_shell_io_t debug_command_shell_io = {
     .write_prompt = debug_console_write_prompt_adapter,
     .execute_command = debug_command_shell_execute,
 };
+
+bool debug_command_runtime_has_pending_work(bool debug_uart_rx_ready)
+{
+    if (!debug_uart_rx_ready)
+    {
+        return false;
+    }
+
+    return board_nucleo_f767zi_debug_uart_overflowed()
+        || board_nucleo_f767zi_debug_uart_has_pending_input();
+}
 
 void debug_command_runtime_process_input(
     bool debug_uart_rx_ready,

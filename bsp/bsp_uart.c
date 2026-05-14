@@ -295,6 +295,18 @@ bool bsp_uart_rx_overflowed(bsp_uart_instance_t instance)
     return rx_buffer->overflowed;
 }
 
+bool bsp_uart_has_rx_data(bsp_uart_instance_t instance)
+{
+    bsp_uart_rx_buffer_t *rx_buffer = bsp_uart_rx_buffer(instance);
+
+    if (rx_buffer == 0)
+    {
+        return false;
+    }
+
+    return rx_buffer->head != rx_buffer->tail;
+}
+
 void bsp_uart_clear_rx_overflow(bsp_uart_instance_t instance)
 {
     bsp_uart_rx_buffer_t *rx_buffer = bsp_uart_rx_buffer(instance);

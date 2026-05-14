@@ -138,6 +138,13 @@ void board_nucleo_f767zi_write_log_string(const char *message);
 bool board_nucleo_f767zi_debug_uart_overflowed(void);
 
 /**
+ * @brief  Query whether the board debug UART currently has unread input
+ * @retval true: at least one unread byte is buffered
+ * @retval false: no unread byte is buffered
+ */
+bool board_nucleo_f767zi_debug_uart_has_pending_input(void);
+
+/**
  * @brief  Clear the board debug UART receive overflow flag
  * @retval None
  */

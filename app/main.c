@@ -18,21 +18,9 @@
 #include "runtime_led.h"
 #include "runtime_log.h"
 #include "runtime_status.h"
+#include "runtime_tick.h"
 
-#define MAIN_LOOP_DELAY_CYCLES 20000U
-
-/**
- * @brief  Provide a short busy-wait delay for the cooperative main loop
- * @param  cycles: loop iterations to wait
- * @retval None
- */
-static void boot_delay(volatile uint32_t cycles)
-{
-    while (cycles > 0U)
-    {
-        cycles--;
-    }
-}
+#define MAIN_PERIODIC_TICK_MS 1U
 
 /**
  * @brief  Initialize the board, run controller self-tests, and enter the UART command loop
@@ -40,6 +28,7 @@ static void boot_delay(volatile uint32_t cycles)
  */
 int main(void)
 {
+    uint32_t last_periodic_tick_ms = 0U;
     pca9685_device_t pca9685_device;
     robot_arm_t robot;
     runtime_led_t runtime_led;
@@ -61,6 +50,20 @@ int main(void)
     const bool debug_uart_rx_ready = debug_uart_ready && (board_nucleo_f767zi_enable_debug_uart_rx_interrupt() == BSP_UART_OK);
 
     runtime_log_enable_debug_fallback(!log_uart_ready && debug_uart_ready);
+
+    if (!runtime_tick_init())
+    {
+        if (log_uart_ready || debug_uart_ready)
+        {
+            runtime_log_write_line(RUNTIME_LOG_LEVEL_ERROR, "SysTick init failed.");
+        }
+
+        for (;;)
+        {
+        }
+    }
+
+    last_periodic_tick_ms = runtime_tick_now_ms();
 
     if (log_uart_ready || debug_uart_ready)
     {
@@ -137,8 +140,16 @@ int main(void)
 
     for (;;)
     {
-        debug_command_runtime_process_input(debug_uart_rx_ready, robot_ready, &robot, &pca9685_device);
-        runtime_led_tick(&runtime_led);
-        boot_delay(MAIN_LOOP_DELAY_CYCLES);
+        const uint32_t now_ms = runtime_tick_now_ms();
+
+        if (debug_command_runtime_has_pending_work(debug_uart_rx_ready))
+        {
+            debug_command_runtime_process_input(debug_uart_rx_ready, robot_ready, &robot, &pca9685_device);
+        }
+
+        if (runtime_tick_periodic_due(now_ms, MAIN_PERIODIC_TICK_MS, &last_periodic_tick_ms))
+        {
+            runtime_led_tick(&runtime_led);
+        }
     }
 }

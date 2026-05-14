@@ -91,6 +91,9 @@ typedef struct
 #define USART6_BASE_ADDRESS 0x40011400UL
 #define NVIC_ISER_BASE_ADDRESS 0xE000E100UL
 #define USART6_IRQ_NUMBER 71U
+#define SYSTICK_CTRL (*(volatile uint32_t *)0xE000E010UL)
+#define SYSTICK_LOAD (*(volatile uint32_t *)0xE000E014UL)
+#define SYSTICK_VAL (*(volatile uint32_t *)0xE000E018UL)
 #define SCB_AIRCR (*(volatile uint32_t *)0xE000ED0CUL)
 #define SCB_CFSR (*(volatile uint32_t *)0xE000ED28UL)
 #define SCB_HFSR (*(volatile uint32_t *)0xE000ED2CUL)
@@ -106,6 +109,10 @@ typedef struct
 #define USART6 ((stm32_usart_registers_t *)USART6_BASE_ADDRESS)
 
 #define SCB_CPACR_CP10_CP11_FULL_ACCESS (0xFUL << 20)
+#define SYSTICK_CTRL_ENABLE (1UL << 0)
+#define SYSTICK_CTRL_TICKINT (1UL << 1)
+#define SYSTICK_CTRL_CLKSOURCE (1UL << 2)
+#define SYSTICK_LOAD_RELOAD_MASK 0x00FFFFFFUL
 #define SCB_AIRCR_PRIGROUP_MASK (0x7UL << 8)
 #define SCB_AIRCR_VECTKEY_WRITE (0x5FAUL << 16)
 #define SCB_AIRCR_SYSRESETREQ (1UL << 2)
@@ -178,7 +185,7 @@ typedef struct
  */
 static inline stm32_gpio_registers_t *stm32_gpio_port(uint32_t port_index)
 {
-    return (stm32_gpio_registers_t *)(GPIOA_BASE_ADDRESS + (GPIO_PORT_STRIDE * port_index));
+    return (stm32_gpio_registers_t *)(uintptr_t)(GPIOA_BASE_ADDRESS + (GPIO_PORT_STRIDE * port_index));
 }
 
 /**

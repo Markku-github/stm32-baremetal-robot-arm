@@ -265,6 +265,11 @@ bool board_nucleo_f767zi_debug_uart_overflowed(void)
     return bsp_uart_rx_overflowed(BOARD_NUCLEO_F767ZI_DEBUG_UART_INSTANCE);
 }
 
+bool board_nucleo_f767zi_debug_uart_has_pending_input(void)
+{
+    return bsp_uart_has_rx_data(BOARD_NUCLEO_F767ZI_DEBUG_UART_INSTANCE);
+}
+
 void board_nucleo_f767zi_clear_debug_uart_overflow(void)
 {
     bsp_uart_clear_rx_overflow(BOARD_NUCLEO_F767ZI_DEBUG_UART_INSTANCE);
