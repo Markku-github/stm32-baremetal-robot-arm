@@ -91,6 +91,11 @@ typedef struct
 #define USART6_BASE_ADDRESS 0x40011400UL
 #define NVIC_ISER_BASE_ADDRESS 0xE000E100UL
 #define USART6_IRQ_NUMBER 71U
+#define SCB_AIRCR (*(volatile uint32_t *)0xE000ED0CUL)
+#define SCB_CFSR (*(volatile uint32_t *)0xE000ED28UL)
+#define SCB_HFSR (*(volatile uint32_t *)0xE000ED2CUL)
+#define SCB_MMFAR (*(volatile uint32_t *)0xE000ED34UL)
+#define SCB_BFAR (*(volatile uint32_t *)0xE000ED38UL)
 #define SCB_CPACR (*(volatile uint32_t *)0xE000ED88UL)
 
 #define RCC ((stm32_rcc_registers_t *)RCC_BASE_ADDRESS)
@@ -101,6 +106,9 @@ typedef struct
 #define USART6 ((stm32_usart_registers_t *)USART6_BASE_ADDRESS)
 
 #define SCB_CPACR_CP10_CP11_FULL_ACCESS (0xFUL << 20)
+#define SCB_AIRCR_PRIGROUP_MASK (0x7UL << 8)
+#define SCB_AIRCR_VECTKEY_WRITE (0x5FAUL << 16)
+#define SCB_AIRCR_SYSRESETREQ (1UL << 2)
 
 #define RCC_CR_HSION (1UL << 0)
 #define RCC_CR_HSIRDY (1UL << 1)

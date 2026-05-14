@@ -22,12 +22,12 @@ extern uint32_t _ebss;
 
 void Reset_Handler(void);
 void Default_Handler(void);
+void NMI_Handler(void);
+void HardFault_Handler(void);
+void MemManage_Handler(void);
+void BusFault_Handler(void);
+void UsageFault_Handler(void);
 
-void NMI_Handler(void) __attribute__((weak, alias("Default_Handler")));
-void HardFault_Handler(void) __attribute__((weak, alias("Default_Handler")));
-void MemManage_Handler(void) __attribute__((weak, alias("Default_Handler")));
-void BusFault_Handler(void) __attribute__((weak, alias("Default_Handler")));
-void UsageFault_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void SVC_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void DebugMon_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void PendSV_Handler(void) __attribute__((weak, alias("Default_Handler")));
@@ -98,6 +98,48 @@ void Reset_Handler(void)
  */
 void Default_Handler(void)
 {
+    runtime_status_capture_fault_and_reset(RUNTIME_STATUS_FAULT_DEFAULT_HANDLER);
+
+    for (;;)
+    {
+    }
+}
+
+void NMI_Handler(void)
+{
+    runtime_status_capture_fault_and_reset(RUNTIME_STATUS_FAULT_NMI);
+    for (;;)
+    {
+    }
+}
+
+void HardFault_Handler(void)
+{
+    runtime_status_capture_fault_and_reset(RUNTIME_STATUS_FAULT_HARDFAULT);
+    for (;;)
+    {
+    }
+}
+
+void MemManage_Handler(void)
+{
+    runtime_status_capture_fault_and_reset(RUNTIME_STATUS_FAULT_MEMMANAGE);
+    for (;;)
+    {
+    }
+}
+
+void BusFault_Handler(void)
+{
+    runtime_status_capture_fault_and_reset(RUNTIME_STATUS_FAULT_BUSFAULT);
+    for (;;)
+    {
+    }
+}
+
+void UsageFault_Handler(void)
+{
+    runtime_status_capture_fault_and_reset(RUNTIME_STATUS_FAULT_USAGEFAULT);
     for (;;)
     {
     }
