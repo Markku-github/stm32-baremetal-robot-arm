@@ -74,6 +74,12 @@ Before merging a branch, the merge candidate must pass the full automated test s
 
 If the touched behavior still depends on real hardware, add the required manual or system-level validation before merge instead of relying on automation alone.
 
+## GitHub-hosted automation
+
+Tracked repository files under `.github/workflows/` may run GitHub-hosted checks for pushes to `main` and for manually triggered workflow runs.
+
+These remote checks should mirror the repository validation policy where practical, but they do not replace the required local validation before merge.
+
 ## Flashing and runtime interfaces
 
 The standard flashing path uses the onboard ST-LINK debugger over SWD.

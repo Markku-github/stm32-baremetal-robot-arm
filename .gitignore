@@ -7,7 +7,6 @@
 /local_notes/
 /.vs/
 /.vscode/
-/.github/
 *.code-workspace
 
 *.o
