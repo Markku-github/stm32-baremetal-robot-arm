@@ -12,9 +12,9 @@ The project has completed V0 bring-up and MVP direct-pose closeout.
 
 The `v0.1.0` tag is the accepted MVP baseline.
 
-The project is currently in a short pre-V1 transition phase focused on planning, facilitation, and environment improvements before officially opening V1 feature work.
+The short pre-V1 transition phase for planning, facilitation, and environment improvements is now complete.
 
-After that transition, the next tracked feature phase is V1. Its first responsibility is to establish structured observability and a cleaner control foundation, then replace abrupt direct-pose jumps with a durable smooth-motion baseline and strengthen runtime control, operator workflow, and validation around that baseline.
+The current tracked feature phase is V1. Its first responsibility is to establish structured observability and a cleaner control foundation, then replace abrupt direct-pose jumps with a durable smooth-motion baseline and strengthen runtime control, operator workflow, and validation around that baseline.
 
 ## V0 - Bring-up and foundation
 
@@ -57,9 +57,9 @@ This is a short transition between MVP closeout and official V1 feature work. It
 Focus:
 
 - ~~shared workflow and environment improvements needed for clean V1 iteration~~
-- finish roadmap, versioning, testing, and closeout-language cleanup so V1 opens from one internally consistent planning baseline
-- reorganize the tracked `docs/` tree into clearer subdirectories once the roadmap work is finished, so V1-era documentation growth does not make navigation harder
-- complete any small repository-facing facilitation work that materially improves day-to-day execution without pretending that V1 robot features have already started
+- ~~finish roadmap, versioning, testing, and closeout-language cleanup so V1 opens from one internally consistent planning baseline~~
+- ~~reorganize the tracked `docs/` tree into clearer subdirectories once the roadmap work is finished, so V1-era documentation growth does not make navigation harder~~
+- ~~complete any small repository-facing facilitation work that materially improves day-to-day execution without pretending that V1 robot features have already started~~
 
 Exit criteria:
 
@@ -67,6 +67,8 @@ Exit criteria:
 - the tracked documentation layout is ready for additional V1-era material without avoidable navigation churn
 - the shared automation and working environment are good enough to support V1 iteration cleanly
 - the repository is ready to open V1 feature branches without treating this transition work itself as V1 scope
+
+Completed before opening V1.
 
 ## V1 - Observability, safe motion, runtime control, and operator workflow
 
