@@ -26,6 +26,8 @@ The goal is to keep `main` stable, branch scopes narrow, and the history easy to
 6. Merge into `main` with `git merge --no-ff <branch-name>`.
 7. Push the updated `main` branch after the accepted merge.
 
+When one roadmap baseline line such as `v0.2.x` is intentionally split into multiple durable published sub-baselines such as `v0.2.0`, `v0.2.1`, and `v0.2.2`, treat each published sub-baseline as its own coherent slice for branch purposes. Use one focused branch for each sub-baseline, merge that branch into `main`, and tag the resulting validated `main` commit. Do not keep one long-lived branch open across several published sub-baselines if each is meant to stand as its own reusable baseline.
+
 ## GitHub repository files
 
 - Track repository-facing GitHub files under `.github/` when they define workflows or other repository behavior that should apply to everyone.
@@ -60,7 +62,7 @@ Use tag names in the form `vMAJOR.MINOR.PATCH`.
 
 - `MAJOR`: increment when the repository reaches a new named project-phase closeout baseline or another intentionally major public baseline. For the current roadmap, `v1.0.0` is the expected V1 closeout tag and `v2.0.0` is the expected V2 closeout tag.
 - `MINOR`: increment for a substantial new baseline within the current major line. Before `v1.0.0`, this is the main way to mark meaningful growth, for example `v0.1.0` for MVP closeout, `v0.2.0` for a substantial V1-era expansion, and later `v0.10.0` or `v0.11.0` if many pre-V1-closeout baselines are needed. After `v1.0.0`, the same logic continues on the `v1.x.0` line for substantial V2-era baselines until V2 closeout.
-- `PATCH`: increment for a narrow corrective release on top of an already tagged baseline, for example `v0.1.1`, `v0.3.1`, or `v1.2.1`, when the goal is to preserve the same baseline while fixing defects, validation gaps, or similarly small follow-up issues.
+- `PATCH`: increment for a narrow corrective release on top of an already tagged baseline, for example `v0.1.1`, `v0.3.1`, or `v1.2.1`, when the goal is to preserve the same baseline while fixing defects, validation gaps, or similarly small follow-up issues. The same patch field may also be used for a deliberately split published follow-up baseline inside one already-planned roadmap bucket, for example `v0.2.1` after `v0.2.0`, when that bucket intentionally spans more than one durable baseline.
 
 Patch numbers are not used for every commit. They exist for occasional post-baseline correction releases, not for day-to-day development history.
 
