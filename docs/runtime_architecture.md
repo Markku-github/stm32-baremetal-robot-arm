@@ -123,6 +123,52 @@ However, the architectural direction is:
 
 This means the current blocking UART TX and blocking I2C implementation are not immediate MVP failures, but they are not the target end state for the control runtime.
 
+## Observability and transport policy
+
+V1 is expected to add structured observability rather than relying only on ad hoc shell prints.
+
+The intended observability direction is:
+
+- structured log levels such as `DEBUG`, `INFO`, `WARNING`, and `ERROR`
+- build-time log filtering so lower-priority logs can be compiled out when appropriate
+- a compact `STATUS` command that reports the current snapshot state instead of trying to act as a full history dump
+
+On the Nucleo-F767ZI hardware used in this repository, the preferred V1 split is:
+
+- operator command ingress on the existing application UART path
+- log output on the ST-LINK virtual COM path when that board path is available cleanly
+
+That split keeps transient log traffic away from the operator command channel without requiring a second external USB-UART adapter.
+
+If the separated path is unavailable in a given environment, a fallback single-link mode is acceptable only if its limits are documented honestly.
+
+Terminal color decisions should stay a host-side concern by default. The firmware should prefer tagged or structured severity output over terminal-specific formatting dependencies.
+
+## Fault-handling policy
+
+Unexpected faults should not disappear into a silent infinite loop in the intended V1 design.
+
+The minimum acceptable V1 direction is:
+
+- capture a small fault classification for unexpected exceptions
+- preserve last reset or fault reason visibility where practical
+- expose that information through boot reporting, focused status reporting, or both
+- drive a distinct LED indication for latched fault states
+
+Fault handlers still need to stay simple and bounded. Best-effort capture is the goal, not heavy formatting or recovery logic inside fault context.
+
+## Engineering-contract policy
+
+The repository should document lightweight runtime criteria, not only behavioral descriptions.
+
+For V1 this should include, where practical:
+
+- the intended control tick frequency
+- the expected motion update cadence
+- any practical command-response upper bounds worth claiming
+
+This does not require a heavy benchmarking subsystem. A small engineering contract supported by focused measurements or smoke checks is enough.
+
 ## Code quality and performance policy
 
 The architecture is expected to stay readable as it evolves.
@@ -164,7 +210,7 @@ The STM32 side should focus on:
 
 The current MVP baseline now keeps robot-specific calibration data in a dedicated robot-level module while leaving the generic servo layer free of robot-specific calibration tables.
 
-The larger runtime-timing evolution should happen with V1 smooth-motion work, where periodic timing semantics become part of the feature itself.
+The larger runtime-timing evolution should happen with early V1 control-foundation and smooth-motion work, where periodic timing semantics become part of the feature itself.
 
 ## Summary rule
 

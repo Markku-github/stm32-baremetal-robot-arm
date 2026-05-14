@@ -62,6 +62,9 @@ System-test scope includes:
 
 - boot-time self-tests
 - UART command-shell behavior on the real target
+- logging transport availability and basic log visibility on the real target
+- reset-reason or fault-report visibility on the real target
+- LED state indication on the real target where it affects runtime diagnosis
 - powered servo motion flows
 - error handling and recovery on the board
 
@@ -85,7 +88,7 @@ For the current post-closeout baseline, the plan is:
 
 - keep unit and integration automation as the main automated safety net
 - keep manual target-level system validation documented with clear procedures and summarized observed results for the hardware-dependent checks that still matter
-- revisit automated system-test investment after MVP if a stable harness becomes worth the complexity
+- revisit automated system-test investment after MVP through a low-risk board-assisted smoke harness before attempting broader target-level automation
 
 ### 4. Manual hardware tests
 
@@ -131,7 +134,7 @@ The preferred automation path is:
 1. Host-native unit-test harness under `tests/`
 2. CMake/CTest integration for automated local execution
 3. Optional CI automation for configure, build, and host tests
-4. Gradual expansion toward automated integration and target-level system validation where practical
+4. Gradual expansion toward board-assisted smoke validation and later target-level system validation where practical
 
 ## Recommended test tree
 
@@ -189,4 +192,5 @@ Tracked documentation may reference summarized observed results, durable procedu
 1. Keep the current host-native suite healthy and fast enough to run before every branch merge.
 2. Expand integration coverage around the robot, command, and startup/self-test seams as V1 runtime work lands.
 3. Add targeted host-runnable tests around motion and state-handling behavior as those seams stabilize.
-4. Revisit quantitative coverage tooling and target-level automation only after the current suite and harness direction are stable.
+4. Add a late-V1 low-risk board-assisted smoke path around startup, logging, reset or fault visibility, status reporting, and other non-destructive checks before attempting heavier target-level automation.
+5. Revisit quantitative coverage tooling and broader target-level automation only after the current suite and harness direction are stable.
