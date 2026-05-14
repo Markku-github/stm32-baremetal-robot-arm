@@ -96,6 +96,22 @@ void runtime_log_enable_debug_fallback(bool enabled)
     runtime_log_debug_fallback_enabled = enabled;
 }
 
+bool runtime_log_begin_line(runtime_log_level_t level)
+{
+    if (!runtime_log_level_enabled(level))
+    {
+        return false;
+    }
+
+    runtime_log_write_sink_string(runtime_log_level_prefix(level));
+    return true;
+}
+
+void runtime_log_end_line(void)
+{
+    runtime_log_write_sink_string("\r\n");
+}
+
 void runtime_log_write_raw(const char *message)
 {
     runtime_log_write_sink_string(message);
@@ -132,12 +148,11 @@ void runtime_log_write_line(runtime_log_level_t level, const char *message)
         return;
     }
 
-    if (!runtime_log_level_enabled(level))
+    if (!runtime_log_begin_line(level))
     {
         return;
     }
 
-    runtime_log_write_sink_string(runtime_log_level_prefix(level));
     runtime_log_write_sink_string(message);
-    runtime_log_write_sink_string("\r\n");
+    runtime_log_end_line();
 }

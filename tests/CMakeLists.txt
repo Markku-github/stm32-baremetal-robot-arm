@@ -61,6 +61,10 @@ add_executable(${BOOT_SELF_TEST_UNIT_TEST_TARGET}
     ${CMAKE_SOURCE_DIR}/robot/robot_arm_joint_calibration.c
 )
 
+target_compile_definitions(${BOOT_SELF_TEST_UNIT_TEST_TARGET} PRIVATE
+    RUNTIME_LOG_MIN_LEVEL=${ROBOT_ARM_RUNTIME_LOG_MIN_LEVEL_DEFINE}
+)
+
 add_executable(${DEBUG_COMMAND_INTEGRATION_TEST_TARGET}
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/test_debug_command_integration.c
     ${CMAKE_CURRENT_SOURCE_DIR}/fakes/pca9685_fake.c

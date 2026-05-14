@@ -26,6 +26,8 @@ typedef enum
 bool runtime_log_init(void);
 bool runtime_log_is_ready(void);
 void runtime_log_enable_debug_fallback(bool enabled);
+bool runtime_log_begin_line(runtime_log_level_t level);
+void runtime_log_end_line(void);
 void runtime_log_write_raw(const char *message);
 void runtime_log_write_hex_byte(uint8_t value);
 void runtime_log_write_hex_word(uint16_t value);
