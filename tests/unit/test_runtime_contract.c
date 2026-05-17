@@ -97,7 +97,7 @@ static bool test_logs_current_runtime_contract_when_info_line_is_enabled(void)
     TEST_ASSERT_TRUE(begin_line_called);
     TEST_ASSERT_EQUAL_INT(RUNTIME_LOG_LEVEL_INFO, captured_level);
     TEST_ASSERT_EQUAL_STRING(
-        "Runtime contract: control_tick=1000 Hz, periodic_service=1 ms, motion_update=direct-pose baseline, POSE_DELAY acknowledges before waiting.",
+        "Runtime contract: control_tick=1000 Hz, periodic_service=1 ms, motion_update=bounded incremental core, POSE_DELAY acknowledges before waiting.",
         captured_message);
     TEST_ASSERT_TRUE(end_line_called);
     return true;

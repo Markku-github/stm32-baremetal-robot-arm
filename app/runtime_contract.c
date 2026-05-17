@@ -21,6 +21,6 @@ void runtime_contract_log_current_baseline(void)
         RUNTIME_TICK_FREQUENCY_HZ_TEXT
         " Hz, periodic_service="
         RUNTIME_CONTRACT_MAIN_SERVICE_INTERVAL_MS_TEXT
-        " ms, motion_update=direct-pose baseline, POSE_DELAY acknowledges before waiting.");
+        " ms, motion_update=bounded incremental core, POSE_DELAY acknowledges before waiting.");
     runtime_log_end_line();
 }
