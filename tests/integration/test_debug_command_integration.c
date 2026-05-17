@@ -245,6 +245,11 @@ static void reset_test_context(debug_command_integration_context_t *context)
     context->handler_context.delay_context = 0;
     context->handler_context.trigger_fault = 0;
     context->handler_context.trigger_fault_context = 0;
+    context->handler_context.schedule_home = 0;
+    context->handler_context.schedule_pose = 0;
+    context->handler_context.motion_context = 0;
+    context->handler_context.assume_home = 0;
+    context->handler_context.assume_home_context = 0;
 }
 
 static void feed_text(
