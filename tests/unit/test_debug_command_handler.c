@@ -175,6 +175,24 @@ typedef struct
     bool was_called;
 } debug_command_handler_fault_test_context_t;
 
+typedef struct
+{
+    bool was_called;
+} debug_command_handler_schedule_home_test_context_t;
+
+typedef struct
+{
+    bool was_called;
+    robot_arm_pose_t last_pose;
+} debug_command_handler_schedule_pose_test_context_t;
+
+typedef struct
+{
+    bool was_called;
+    robot_arm_t *robot;
+    bool *robot_ready;
+} debug_command_handler_assume_home_test_context_t;
+
 static uint32_t test_runtime_status_reset_flags_storage = 0U;
 static runtime_status_fault_kind_t test_runtime_status_fault_kind_storage = RUNTIME_STATUS_FAULT_NONE;
 
@@ -249,6 +267,55 @@ static bool trigger_fault_for_test(void *context)
     }
 
     fault_context->was_called = true;
+    return true;
+}
+
+static bool schedule_home_for_test(void *context)
+{
+    debug_command_handler_schedule_home_test_context_t *schedule_context = (debug_command_handler_schedule_home_test_context_t *)context;
+
+    if (schedule_context == 0)
+    {
+        return false;
+    }
+
+    schedule_context->was_called = true;
+    return true;
+}
+
+static bool schedule_pose_for_test(void *context, const robot_arm_pose_t *pose)
+{
+    debug_command_handler_schedule_pose_test_context_t *schedule_context = (debug_command_handler_schedule_pose_test_context_t *)context;
+
+    if ((schedule_context == 0) || (pose == 0))
+    {
+        return false;
+    }
+
+    schedule_context->was_called = true;
+    schedule_context->last_pose = *pose;
+    return true;
+}
+
+static bool assume_home_for_test(void *context)
+{
+    debug_command_handler_assume_home_test_context_t *assume_home_context = (debug_command_handler_assume_home_test_context_t *)context;
+
+    if ((assume_home_context == 0)
+        || (assume_home_context->robot == 0)
+        || (assume_home_context->robot_ready == 0)
+        || (*(assume_home_context->robot_ready)))
+    {
+        return false;
+    }
+
+    assume_home_context->was_called = true;
+    if (robot_arm_assume_home(assume_home_context->robot) != ROBOT_ARM_OK)
+    {
+        return false;
+    }
+
+    *(assume_home_context->robot_ready) = true;
     return true;
 }
 
@@ -491,6 +558,94 @@ static bool test_home_command_resets_pose_and_reports_ok(void)
     return true;
 }
 
+static bool test_home_command_schedules_home_when_callback_is_provided(void)
+{
+    debug_command_handler_test_output_t output;
+    debug_command_handler_context_t context = { 0 };
+    debug_command_handler_schedule_home_test_context_t schedule_context = { false };
+
+    reset_runtime_status_snapshot();
+    context.robot_ready = true;
+    context.schedule_home = schedule_home_for_test;
+    context.motion_context = &schedule_context;
+
+    reset_output(&output);
+    debug_command_handler_execute("HOME", &context, &test_handler_io, &output);
+
+    TEST_ASSERT_TRUE(schedule_context.was_called);
+    TEST_ASSERT_STRING_EQUAL("OK HOME\r\n> ", output.output);
+    return true;
+}
+
+static bool test_home_command_sets_home_reference_when_not_ready(void)
+{
+    debug_command_handler_test_output_t output;
+    debug_command_handler_context_t context = { 0 };
+    debug_command_handler_assume_home_test_context_t assume_home_context;
+    robot_arm_t robot;
+    robot_arm_pose_t current_pose;
+    robot_arm_pose_t pose;
+    pca9685_fake_state_t *fake_state;
+    bool robot_ready = false;
+
+    reset_runtime_status_snapshot();
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
+    fill_test_pose(&pose);
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
+
+    assume_home_context.was_called = false;
+    assume_home_context.robot = &robot;
+    assume_home_context.robot_ready = &robot_ready;
+
+    context.robot_ready = false;
+    context.robot = &robot;
+    context.assume_home = assume_home_for_test;
+    context.assume_home_context = &assume_home_context;
+
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+    reset_output(&output);
+    debug_command_handler_execute("HOME", &context, &test_handler_io, &output);
+
+    TEST_ASSERT_TRUE(assume_home_context.was_called);
+    TEST_ASSERT_TRUE(robot_ready);
+    TEST_ASSERT_UINT32_EQUAL(0U, fake_state->call_count);
+    TEST_ASSERT_STRING_EQUAL("OK HOME_REFERENCE\r\n> ", output.output);
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_BASE_HOME_RAD, current_pose.base_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_SHOULDER_HOME_RAD, current_pose.shoulder_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_ELBOW_HOME_RAD, current_pose.elbow_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_TILT_HOME_RAD, current_pose.wrist_tilt_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_ROTATE_HOME_RAD, current_pose.wrist_rotate_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_GRIPPER_HOME_RAD, current_pose.gripper_rad);
+    return true;
+}
+
+static bool test_pose_command_schedules_pose_when_callback_is_provided(void)
+{
+    debug_command_handler_test_output_t output;
+    debug_command_handler_context_t context = { 0 };
+    debug_command_handler_schedule_pose_test_context_t schedule_context = { false };
+
+    reset_runtime_status_snapshot();
+    context.robot_ready = true;
+    context.schedule_pose = schedule_pose_for_test;
+    context.motion_context = &schedule_context;
+
+    reset_output(&output);
+    debug_command_handler_execute("POSE 10 30 120 135 150 10", &context, &test_handler_io, &output);
+
+    TEST_ASSERT_TRUE(schedule_context.was_called);
+    TEST_ASSERT_STRING_EQUAL("OK POSE\r\n> ", output.output);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(10.0f), schedule_context.last_pose.base_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(30.0f), schedule_context.last_pose.shoulder_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_ELBOW_POSE_RAD, schedule_context.last_pose.elbow_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_TILT_POSE_RAD, schedule_context.last_pose.wrist_tilt_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_ROTATE_POSE_RAD, schedule_context.last_pose.wrist_rotate_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(10.0f), schedule_context.last_pose.gripper_rad);
+    return true;
+}
+
 static bool test_unknown_command_reports_error(void)
 {
     debug_command_handler_test_output_t output;
@@ -519,6 +674,9 @@ int main(void)
         { "pose_command_recovers_from_single_servo_failure", test_pose_command_recovers_from_single_servo_failure },
         { "pose_delay_command_waits_then_updates_robot_and_reports_ok", test_pose_delay_command_waits_then_updates_robot_and_reports_ok },
         { "home_command_resets_pose_and_reports_ok", test_home_command_resets_pose_and_reports_ok },
+        { "home_command_schedules_home_when_callback_is_provided", test_home_command_schedules_home_when_callback_is_provided },
+        { "home_command_sets_home_reference_when_not_ready", test_home_command_sets_home_reference_when_not_ready },
+        { "pose_command_schedules_pose_when_callback_is_provided", test_pose_command_schedules_pose_when_callback_is_provided },
         { "unknown_command_reports_error", test_unknown_command_reports_error },
     };
     unsigned int test_index;

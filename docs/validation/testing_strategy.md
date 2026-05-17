@@ -114,9 +114,11 @@ For the current V1 observability and control-foundation work, keep one small non
 
 The current preferred check is:
 
-- boot the firmware until the controller either reaches the normal ready state or remains explicitly not ready
+- boot the firmware until the controller reaches the normal shell prompt
 - run `STATUS` from the USART6 shell to capture a focused controller snapshot
-- if the controller is ready, run `POSE_DELAY 3 90 0 180 180 90 0` as the default delay-path smoke check because it reissues the HOME pose after a short wait
+- if startup restored a previously held pose and the controller is already ready, continue directly to the delayed HOME-path smoke check
+- if startup remains not ready, place the arm physically at HOME and run `HOME` once to establish the startup HOME reference without motion
+- run `POSE_DELAY 3 90 0 180 180 90 0` as the default delay-path smoke check because it reissues the HOME pose after a short wait
 - run `STATUS` again after the delayed command completes
 
 Expected behavior for this smoke path:
@@ -124,7 +126,10 @@ Expected behavior for this smoke path:
 - `STATUS` should always return a snapshot instead of collapsing to a generic not-ready error
 - the snapshot should include controller readiness plus the captured reset and fault fields
 - pose lines should appear only when the controller is ready and the current pose is readable
-- in the normal ready path, `POSE_DELAY 3 90 0 180 180 90 0` should print `WAIT POSE 3 s` immediately and `OK POSE_DELAY` after the delay expires
+- if active PCA9685 outputs were already holding a valid robot pose before reset, startup should restore that hold and reach the ready state without an automatic travel command
+- if no valid preserved hold was available, startup should remain motionless and keep the controller not ready until the operator explicitly issues `HOME`
+- in that fallback path, the first `HOME` after startup, once the arm has been placed physically at HOME, should return `OK HOME_REFERENCE` without commanding motion
+- `POSE_DELAY 3 90 0 180 180 90 0` should print `WAIT POSE 3 s` immediately and `OK POSE_DELAY` after the delay expires
 - the follow-up `STATUS` should still report the expected HOME pose values after that ready-state delay check
 
 This smoke path may be run with external servo power off when the goal is only to validate shell behavior, runtime timing, and controller visibility rather than powered motion quality.

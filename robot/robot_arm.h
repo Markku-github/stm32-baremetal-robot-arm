@@ -104,6 +104,23 @@ robot_arm_status_t robot_arm_get_home_pose(const robot_arm_t *robot, robot_arm_p
 robot_arm_status_t robot_arm_get_current_pose(const robot_arm_t *robot, robot_arm_pose_t *pose);
 
 /**
+ * @brief  Update the logical robot pose without writing any servo outputs
+ * @param  robot: initialized robot descriptor
+ * @param  pose: assumed current pose in radians
+ * @retval ROBOT_ARM_OK: runtime pose updated successfully
+ * @retval ROBOT_ARM_ERR_INVALID_ARGUMENT: robot or pose invalid
+ */
+robot_arm_status_t robot_arm_assume_pose(robot_arm_t *robot, const robot_arm_pose_t *pose);
+
+/**
+ * @brief  Mark the logical robot pose as the configured HOME pose without moving the servos
+ * @param  robot: initialized robot descriptor
+ * @retval ROBOT_ARM_OK: runtime pose updated successfully
+ * @retval ROBOT_ARM_ERR_INVALID_ARGUMENT: robot invalid
+ */
+robot_arm_status_t robot_arm_assume_home(robot_arm_t *robot);
+
+/**
  * @brief  Calculate the pulse width that one robot joint command would write through the current runtime mapping
  * @param  robot: initialized robot descriptor
  * @param  joint_id: logical joint identifier
@@ -117,6 +134,10 @@ robot_arm_status_t robot_arm_calculate_joint_pulse_width_us(
     robot_arm_joint_id_t joint_id,
     float angle_rad,
     uint16_t *pulse_width_us);
+
+robot_arm_status_t robot_arm_restore_pose_from_pulse_widths(
+    robot_arm_t *robot,
+    const uint16_t pulse_width_us_by_joint[ROBOT_ARM_JOINT_COUNT]);
 
 /**
  * @brief  Immediately apply a direct joint-space pose to all six robot servos

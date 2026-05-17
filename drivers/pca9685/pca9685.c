@@ -342,6 +342,40 @@ pca9685_status_t pca9685_set_channel_pulse_us(
     return pca9685_set_channel_pwm(device, channel, 0U, (uint16_t)pulse_counts);
 }
 
+pca9685_status_t pca9685_set_channel_pulse_us_disabled(
+    const pca9685_device_t *device,
+    uint8_t channel,
+    uint16_t pulse_width_us)
+{
+    uint64_t pulse_counts;
+
+    if (!pca9685_is_valid_device(device) || (channel >= PCA9685_CHANNEL_COUNT))
+    {
+        return PCA9685_ERR_INVALID_ARGUMENT;
+    }
+
+    if (device->pwm_frequency_hz == 0U)
+    {
+        return PCA9685_ERR_STATE;
+    }
+
+    pulse_counts = ((uint64_t)pulse_width_us * (uint64_t)device->pwm_frequency_hz * (uint64_t)PCA9685_PWM_STEPS + 500000ULL)
+        / 1000000ULL;
+
+    if (pulse_counts >= (uint64_t)PCA9685_PWM_STEPS)
+    {
+        return PCA9685_ERR_INVALID_ARGUMENT;
+    }
+
+    return pca9685_write_channel_registers(
+        device->instance,
+        device->address,
+        pca9685_channel_register_base(channel),
+        0U,
+        (uint16_t)pulse_counts,
+        true);
+}
+
 pca9685_status_t pca9685_write_register(
     bsp_i2c_instance_t instance,
     uint8_t address,

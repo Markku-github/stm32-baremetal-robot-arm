@@ -112,6 +112,21 @@ pca9685_status_t pca9685_set_channel_pulse_us(
     uint16_t pulse_width_us);
 
 /**
+ * @brief  Program one PCA9685 output pulse width while keeping the channel in full-off state
+ * @param  device: initialized PCA9685 device descriptor with a configured PWM frequency
+ * @param  channel: output channel index from 0 to 15
+ * @param  pulse_width_us: requested pulse width in microseconds
+ * @retval PCA9685_OK: register values updated successfully while the output remained disabled
+ * @retval PCA9685_ERR_INVALID_ARGUMENT: device, channel, or pulse width invalid
+ * @retval PCA9685_ERR_STATE: PWM frequency has not been configured yet
+ * @retval PCA9685_ERR_I2C: underlying I2C transaction failed
+ */
+pca9685_status_t pca9685_set_channel_pulse_us_disabled(
+    const pca9685_device_t *device,
+    uint8_t channel,
+    uint16_t pulse_width_us);
+
+/**
  * @brief  Force all PCA9685 outputs into a disabled full-off state
  * @param  device: initialized PCA9685 device descriptor
  * @retval PCA9685_OK: all output channels were disabled successfully
