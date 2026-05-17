@@ -20,6 +20,8 @@ static const pca9685_device_t test_device = {
 static runtime_log_level_t last_log_level = RUNTIME_LOG_LEVEL_INFO;
 static const char *last_log_message = 0;
 
+#define RUNTIME_MOTION_MAX_SERVICE_TICKS 5000U
+
 typedef struct
 {
     bool was_called;
@@ -131,6 +133,7 @@ static bool test_schedule_pose_defers_application_until_service(void)
     robot_arm_t robot;
     robot_arm_pose_t pose;
     robot_arm_pose_t current_pose;
+    uint32_t tick_count = 0U;
 
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
     runtime_motion_init(&motion);
@@ -152,6 +155,17 @@ static bool test_schedule_pose_defers_application_until_service(void)
     TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, motion.target_pose.base_rad);
 
     TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
+    TEST_ASSERT_TRUE(current_pose.base_rad > 0.0f);
+    TEST_ASSERT_TRUE(current_pose.base_rad < pose.base_rad);
+
+    while (runtime_motion_has_active_motion(&motion) && (tick_count < RUNTIME_MOTION_MAX_SERVICE_TICKS))
+    {
+        TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+        tick_count++;
+    }
+
     TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, current_pose.base_rad);
@@ -170,6 +184,7 @@ static bool test_schedule_home_defers_application_until_service(void)
     robot_arm_pose_t pose;
     robot_arm_pose_t current_pose;
     robot_arm_pose_t home_pose;
+    uint32_t tick_count = 0U;
 
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
     fill_test_pose(&pose);
@@ -191,8 +206,19 @@ static bool test_schedule_home_defers_application_until_service(void)
     TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, current_pose.base_rad);
 
     TEST_ASSERT_TRUE(runtime_motion_service(&motion));
-    TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
+    TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_home_pose(&robot, &home_pose));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_TRUE(current_pose.base_rad > pose.base_rad);
+    TEST_ASSERT_TRUE(current_pose.base_rad < home_pose.base_rad);
+
+    while (runtime_motion_has_active_motion(&motion) && (tick_count < RUNTIME_MOTION_MAX_SERVICE_TICKS))
+    {
+        TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+        tick_count++;
+    }
+
+    TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(home_pose.base_rad, current_pose.base_rad);
     TEST_ASSERT_FLOAT_CLOSE(home_pose.shoulder_rad, current_pose.shoulder_rad);
@@ -239,7 +265,7 @@ static bool test_service_recovers_once_from_single_servo_failure(void)
     TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
 
     TEST_ASSERT_TRUE(runtime_motion_service(&motion));
-    TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
+    TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
     TEST_ASSERT_TRUE(recovery_context.was_called);
     TEST_ASSERT_UINT32_EQUAL((uint32_t)(ROBOT_ARM_JOINT_COUNT + 1U), pca9685_fake_state()->call_count);
     return true;

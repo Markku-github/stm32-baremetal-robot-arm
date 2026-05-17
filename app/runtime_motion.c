@@ -9,6 +9,8 @@
 
 #include "runtime_log.h"
 
+#define RUNTIME_MOTION_INCREMENTAL_STEP_RAD 0.00087266462599716477f
+
 static void runtime_motion_zero_pose(robot_arm_pose_t *pose)
 {
     if (pose == 0)
@@ -22,6 +24,60 @@ static void runtime_motion_zero_pose(robot_arm_pose_t *pose)
     pose->wrist_tilt_rad = 0.0f;
     pose->wrist_rotate_rad = 0.0f;
     pose->gripper_rad = 0.0f;
+}
+
+static float runtime_motion_absolute_difference(float left, float right)
+{
+    const float delta = left - right;
+
+    return (delta < 0.0f) ? -delta : delta;
+}
+
+static float runtime_motion_step_joint_toward_target(float current_angle_rad, float target_angle_rad)
+{
+    const float delta = target_angle_rad - current_angle_rad;
+
+    if (delta > RUNTIME_MOTION_INCREMENTAL_STEP_RAD)
+    {
+        return current_angle_rad + RUNTIME_MOTION_INCREMENTAL_STEP_RAD;
+    }
+
+    if (delta < -RUNTIME_MOTION_INCREMENTAL_STEP_RAD)
+    {
+        return current_angle_rad - RUNTIME_MOTION_INCREMENTAL_STEP_RAD;
+    }
+
+    return target_angle_rad;
+}
+
+static void runtime_motion_build_next_pose(
+    const robot_arm_pose_t *current_pose,
+    const robot_arm_pose_t *target_pose,
+    robot_arm_pose_t *next_pose)
+{
+    if ((current_pose == 0) || (target_pose == 0) || (next_pose == 0))
+    {
+        return;
+    }
+
+    next_pose->base_rad = runtime_motion_step_joint_toward_target(current_pose->base_rad, target_pose->base_rad);
+    next_pose->shoulder_rad = runtime_motion_step_joint_toward_target(current_pose->shoulder_rad, target_pose->shoulder_rad);
+    next_pose->elbow_rad = runtime_motion_step_joint_toward_target(current_pose->elbow_rad, target_pose->elbow_rad);
+    next_pose->wrist_tilt_rad = runtime_motion_step_joint_toward_target(current_pose->wrist_tilt_rad, target_pose->wrist_tilt_rad);
+    next_pose->wrist_rotate_rad = runtime_motion_step_joint_toward_target(current_pose->wrist_rotate_rad, target_pose->wrist_rotate_rad);
+    next_pose->gripper_rad = runtime_motion_step_joint_toward_target(current_pose->gripper_rad, target_pose->gripper_rad);
+}
+
+static bool runtime_motion_pose_matches(const robot_arm_pose_t *left_pose, const robot_arm_pose_t *right_pose)
+{
+    return (left_pose != 0)
+        && (right_pose != 0)
+        && (runtime_motion_absolute_difference(left_pose->base_rad, right_pose->base_rad) <= 0.000001f)
+        && (runtime_motion_absolute_difference(left_pose->shoulder_rad, right_pose->shoulder_rad) <= 0.000001f)
+        && (runtime_motion_absolute_difference(left_pose->elbow_rad, right_pose->elbow_rad) <= 0.000001f)
+        && (runtime_motion_absolute_difference(left_pose->wrist_tilt_rad, right_pose->wrist_tilt_rad) <= 0.000001f)
+        && (runtime_motion_absolute_difference(left_pose->wrist_rotate_rad, right_pose->wrist_rotate_rad) <= 0.000001f)
+        && (runtime_motion_absolute_difference(left_pose->gripper_rad, right_pose->gripper_rad) <= 0.000001f);
 }
 
 static robot_arm_status_t runtime_motion_begin_pending_request(runtime_motion_t *motion)
@@ -58,21 +114,29 @@ static robot_arm_status_t runtime_motion_begin_pending_request(runtime_motion_t 
 static robot_arm_status_t runtime_motion_complete_active_motion(runtime_motion_t *motion)
 {
     robot_arm_status_t status;
+    robot_arm_pose_t next_pose;
 
     if ((motion == 0) || (motion->robot == 0) || !motion->motion_active)
     {
         return ROBOT_ARM_ERR_INVALID_ARGUMENT;
     }
 
-    status = robot_arm_set_pose_immediate(motion->robot, &motion->target_pose);
+    runtime_motion_build_next_pose(&motion->current_pose, &motion->target_pose, &next_pose);
+
+    status = robot_arm_set_pose_immediate(motion->robot, &next_pose);
     if (status != ROBOT_ARM_OK)
     {
         return status;
     }
 
-    motion->current_pose = motion->target_pose;
-    motion->motion_active = false;
-    motion->motion_home = false;
+    motion->current_pose = next_pose;
+
+    if (runtime_motion_pose_matches(&motion->current_pose, &motion->target_pose))
+    {
+        motion->motion_active = false;
+        motion->motion_home = false;
+    }
+
     return ROBOT_ARM_OK;
 }
 
