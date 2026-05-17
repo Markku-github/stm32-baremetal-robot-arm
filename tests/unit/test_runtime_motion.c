@@ -9,6 +9,7 @@
 #define RUNTIME_MOTION_TEST_PI_F 3.14159265358979323846f
 #define RUNTIME_MOTION_TEST_DEG_TO_RAD(angle_deg) ((angle_deg) * (RUNTIME_MOTION_TEST_PI_F / 180.0f))
 #define RUNTIME_MOTION_TEST_FLOAT_TOLERANCE 0.0001f
+#define RUNTIME_MOTION_SERVICE_TICKS_PER_UPDATE 20U
 
 static const pca9685_device_t test_device = {
     .instance = BSP_I2C_INSTANCE_I2C1,
@@ -21,6 +22,10 @@ static runtime_log_level_t last_log_level = RUNTIME_LOG_LEVEL_INFO;
 static const char *last_log_message = 0;
 
 #define RUNTIME_MOTION_MAX_SERVICE_TICKS 5000U
+#define RUNTIME_MOTION_POSE_MOVE_TICK_MIN 3000U
+#define RUNTIME_MOTION_POSE_MOVE_TICK_MAX 4500U
+#define RUNTIME_MOTION_HOME_MOVE_TICK_MIN 1500U
+#define RUNTIME_MOTION_HOME_MOVE_TICK_MAX 2500U
 
 typedef struct
 {
@@ -137,7 +142,7 @@ static bool test_schedule_pose_defers_application_until_service(void)
 
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
     runtime_motion_init(&motion);
-    runtime_motion_configure(&motion, &robot, 0, 0);
+    runtime_motion_configure(&motion, &robot, 0, 0, RUNTIME_MOTION_SERVICE_TICKS_PER_UPDATE);
     fill_test_pose(&pose);
 
     TEST_ASSERT_TRUE(runtime_motion_schedule_pose(&motion, &pose));
@@ -154,7 +159,17 @@ static bool test_schedule_pose_defers_application_until_service(void)
     TEST_ASSERT_FLOAT_CLOSE(0.0f, motion.current_pose.base_rad);
     TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, motion.target_pose.base_rad);
 
+    while (tick_count < (RUNTIME_MOTION_SERVICE_TICKS_PER_UPDATE - 1U))
+    {
+        TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+        TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+        TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
+        TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.base_rad);
+        tick_count++;
+    }
+
     TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+    tick_count++;
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
     TEST_ASSERT_TRUE(current_pose.base_rad > 0.0f);
@@ -167,6 +182,8 @@ static bool test_schedule_pose_defers_application_until_service(void)
     }
 
     TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
+    TEST_ASSERT_TRUE(tick_count >= RUNTIME_MOTION_POSE_MOVE_TICK_MIN);
+    TEST_ASSERT_TRUE(tick_count <= RUNTIME_MOTION_POSE_MOVE_TICK_MAX);
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, current_pose.base_rad);
     TEST_ASSERT_FLOAT_CLOSE(pose.shoulder_rad, current_pose.shoulder_rad);
@@ -174,6 +191,47 @@ static bool test_schedule_pose_defers_application_until_service(void)
     TEST_ASSERT_FLOAT_CLOSE(pose.wrist_tilt_rad, current_pose.wrist_tilt_rad);
     TEST_ASSERT_FLOAT_CLOSE(pose.wrist_rotate_rad, current_pose.wrist_rotate_rad);
     TEST_ASSERT_FLOAT_CLOSE(pose.gripper_rad, current_pose.gripper_rad);
+    return true;
+}
+
+static bool test_active_motion_profiles_step_size_before_reaching_cruise_speed(void)
+{
+    runtime_motion_t motion;
+    robot_arm_t robot;
+    robot_arm_pose_t pose;
+    robot_arm_pose_t current_pose;
+    float first_delta_rad;
+    float second_delta_rad;
+    uint32_t tick_count = 0U;
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
+    runtime_motion_init(&motion);
+    runtime_motion_configure(&motion, &robot, 0, 0, RUNTIME_MOTION_SERVICE_TICKS_PER_UPDATE);
+    fill_test_pose(&pose);
+
+    TEST_ASSERT_TRUE(runtime_motion_schedule_pose(&motion, &pose));
+    TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+
+    while (tick_count < RUNTIME_MOTION_SERVICE_TICKS_PER_UPDATE)
+    {
+        TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+        tick_count++;
+    }
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    first_delta_rad = current_pose.base_rad;
+    TEST_ASSERT_TRUE(first_delta_rad > 0.0f);
+
+    tick_count = 0U;
+    while (tick_count < RUNTIME_MOTION_SERVICE_TICKS_PER_UPDATE)
+    {
+        TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+        tick_count++;
+    }
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    second_delta_rad = current_pose.base_rad - first_delta_rad;
+    TEST_ASSERT_TRUE(second_delta_rad > first_delta_rad);
     return true;
 }
 
@@ -191,7 +249,7 @@ static bool test_schedule_home_defers_application_until_service(void)
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_set_pose_immediate(&robot, &pose));
 
     runtime_motion_init(&motion);
-    runtime_motion_configure(&motion, &robot, 0, 0);
+    runtime_motion_configure(&motion, &robot, 0, 0, RUNTIME_MOTION_SERVICE_TICKS_PER_UPDATE);
     TEST_ASSERT_TRUE(runtime_motion_schedule_home(&motion));
     TEST_ASSERT_TRUE(runtime_motion_has_pending_request(&motion));
     TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
@@ -205,7 +263,17 @@ static bool test_schedule_home_defers_application_until_service(void)
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, current_pose.base_rad);
 
+    while (tick_count < (RUNTIME_MOTION_SERVICE_TICKS_PER_UPDATE - 1U))
+    {
+        TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+        TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+        TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
+        TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, current_pose.base_rad);
+        tick_count++;
+    }
+
     TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+    tick_count++;
     TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_home_pose(&robot, &home_pose));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
@@ -219,6 +287,8 @@ static bool test_schedule_home_defers_application_until_service(void)
     }
 
     TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
+    TEST_ASSERT_TRUE(tick_count >= RUNTIME_MOTION_HOME_MOVE_TICK_MIN);
+    TEST_ASSERT_TRUE(tick_count <= RUNTIME_MOTION_HOME_MOVE_TICK_MAX);
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(home_pose.base_rad, current_pose.base_rad);
     TEST_ASSERT_FLOAT_CLOSE(home_pose.shoulder_rad, current_pose.shoulder_rad);
@@ -237,7 +307,7 @@ static bool test_schedule_rejects_second_pending_request(void)
 
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
     runtime_motion_init(&motion);
-    runtime_motion_configure(&motion, &robot, 0, 0);
+    runtime_motion_configure(&motion, &robot, 0, 0, RUNTIME_MOTION_SERVICE_TICKS_PER_UPDATE);
     fill_test_pose(&pose);
 
     TEST_ASSERT_TRUE(runtime_motion_schedule_pose(&motion, &pose));
@@ -255,7 +325,7 @@ static bool test_service_recovers_once_from_single_servo_failure(void)
 
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_init(&robot, &test_device));
     runtime_motion_init(&motion);
-    runtime_motion_configure(&motion, &robot, recover_robot_for_test, &recovery_context);
+    runtime_motion_configure(&motion, &robot, recover_robot_for_test, &recovery_context, 1U);
     fill_test_pose(&pose);
     pca9685_fake_reset();
     pca9685_fake_state()->next_status = PCA9685_ERR_I2C;
@@ -279,6 +349,7 @@ int main(void)
         bool (*function)(void);
     } tests[] = {
         { "schedule_pose_defers_application_until_service", test_schedule_pose_defers_application_until_service },
+        { "active_motion_profiles_step_size_before_reaching_cruise_speed", test_active_motion_profiles_step_size_before_reaching_cruise_speed },
         { "schedule_home_defers_application_until_service", test_schedule_home_defers_application_until_service },
         { "schedule_rejects_second_pending_request", test_schedule_rejects_second_pending_request },
         { "service_recovers_once_from_single_servo_failure", test_service_recovers_once_from_single_servo_failure },

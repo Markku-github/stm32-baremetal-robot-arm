@@ -9,6 +9,7 @@
 #define RUNTIME_MOTION_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "robot_arm.h"
 
@@ -26,6 +27,9 @@ typedef struct
     bool pending_home;
     bool motion_active;
     bool motion_home;
+    uint16_t service_ticks_per_update;
+    uint16_t service_ticks_until_update;
+    float current_step_limit_rad;
 } runtime_motion_t;
 
 void runtime_motion_init(runtime_motion_t *motion);
@@ -33,7 +37,8 @@ void runtime_motion_configure(
     runtime_motion_t *motion,
     robot_arm_t *robot,
     runtime_motion_recover_robot_fn recover_robot,
-    void *recover_context);
+    void *recover_context,
+    uint16_t service_ticks_per_update);
 void runtime_motion_clear(runtime_motion_t *motion);
 bool runtime_motion_has_pending_request(const runtime_motion_t *motion);
 bool runtime_motion_has_active_motion(const runtime_motion_t *motion);

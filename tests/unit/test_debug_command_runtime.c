@@ -19,6 +19,7 @@ static bool stub_runtime_motion_init_called = false;
 static bool stub_runtime_motion_configure_called = false;
 static bool stub_runtime_motion_clear_called = false;
 static bool stub_runtime_motion_service_called = false;
+static uint16_t stub_runtime_motion_configure_service_ticks_per_update = 0U;
 
 #define TEST_ASSERT_TRUE(condition) \
     do \
@@ -72,13 +73,15 @@ void runtime_motion_configure(
     runtime_motion_t *motion,
     robot_arm_t *robot,
     runtime_motion_recover_robot_fn recover_robot,
-    void *recover_context)
+    void *recover_context,
+    uint16_t service_ticks_per_update)
 {
     (void)motion;
     (void)robot;
     (void)recover_robot;
     (void)recover_context;
     stub_runtime_motion_configure_called = true;
+    stub_runtime_motion_configure_service_ticks_per_update = service_ticks_per_update;
 
     if (robot == 0)
     {
@@ -231,6 +234,7 @@ static void reset_stubs(void)
     stub_runtime_motion_configure_called = false;
     stub_runtime_motion_clear_called = false;
     stub_runtime_motion_service_called = false;
+    stub_runtime_motion_configure_service_ticks_per_update = 0U;
 }
 
 static bool test_has_pending_work_rejects_unready_uart(void)
@@ -272,15 +276,30 @@ static bool test_has_pending_work_reports_idle_when_no_work_exists(void)
 static bool test_service_motion_configures_and_services_when_robot_ready(void)
 {
     robot_arm_t robot;
-    pca9685_device_t device;
+    pca9685_device_t device = { 0 };
 
     reset_stubs();
+    device.pwm_frequency_hz = 50U;
     debug_command_runtime_service_motion(true, &robot, &device);
 
     TEST_ASSERT_TRUE(stub_runtime_motion_init_called);
     TEST_ASSERT_TRUE(stub_runtime_motion_configure_called);
     TEST_ASSERT_TRUE(stub_runtime_motion_service_called);
     TEST_ASSERT_FALSE(stub_runtime_motion_clear_called);
+    TEST_ASSERT_TRUE(stub_runtime_motion_configure_service_ticks_per_update == 20U);
+    return true;
+}
+
+static bool test_service_motion_derives_motion_cadence_from_pwm_frequency(void)
+{
+    robot_arm_t robot;
+    pca9685_device_t device = { 0 };
+
+    reset_stubs();
+    device.pwm_frequency_hz = 100U;
+    debug_command_runtime_service_motion(true, &robot, &device);
+
+    TEST_ASSERT_TRUE(stub_runtime_motion_configure_service_ticks_per_update == 10U);
     return true;
 }
 
@@ -310,6 +329,7 @@ int main(void)
         { "has_pending_work_reports_buffered_input", test_has_pending_work_reports_buffered_input },
         { "has_pending_work_reports_idle_when_no_work_exists", test_has_pending_work_reports_idle_when_no_work_exists },
         { "service_motion_configures_and_services_when_robot_ready", test_service_motion_configures_and_services_when_robot_ready },
+        { "service_motion_derives_motion_cadence_from_pwm_frequency", test_service_motion_derives_motion_cadence_from_pwm_frequency },
         { "service_motion_only_configures_when_robot_not_ready", test_service_motion_only_configures_when_robot_not_ready },
     };
     unsigned int index;

@@ -14,6 +14,7 @@
 #include "debug_command_handler.h"
 #include "debug_command_shell.h"
 #include "pca9685.h"
+#include "runtime_contract.h"
 #include "runtime_motion.h"
 #include "runtime_tick.h"
 #include "runtime_status.h"
@@ -30,6 +31,30 @@ static bool debug_command_runtime_motion_initialized = false;
 static debug_command_runtime_recovery_context_t debug_command_runtime_motion_recovery_context = { 0 };
 
 static bool debug_command_runtime_recover_robot(void *context, robot_arm_t *robot);
+
+static uint16_t debug_command_runtime_motion_service_ticks_per_update(const pca9685_device_t *pca9685_device)
+{
+    uint16_t pwm_frequency_hz = DEBUG_COMMAND_RUNTIME_PCA9685_PWM_FREQUENCY_HZ;
+    uint32_t pwm_period_ms;
+    uint32_t service_ticks_per_update;
+
+    if ((pca9685_device != 0) && (pca9685_device->pwm_frequency_hz != 0U))
+    {
+        pwm_frequency_hz = pca9685_device->pwm_frequency_hz;
+    }
+
+    pwm_period_ms = (1000U + ((uint32_t)pwm_frequency_hz / 2U)) / (uint32_t)pwm_frequency_hz;
+    if (pwm_period_ms == 0U)
+    {
+        pwm_period_ms = RUNTIME_CONTRACT_MAIN_SERVICE_INTERVAL_MS;
+    }
+
+    service_ticks_per_update =
+        (pwm_period_ms + (uint32_t)RUNTIME_CONTRACT_MAIN_SERVICE_INTERVAL_MS - 1U)
+        / (uint32_t)RUNTIME_CONTRACT_MAIN_SERVICE_INTERVAL_MS;
+
+    return (service_ticks_per_update == 0U) ? 1U : (uint16_t)service_ticks_per_update;
+}
 
 static const debug_command_handler_io_t debug_command_handler_io = {
     .write_string = debug_console_write_string_adapter,
@@ -70,7 +95,8 @@ static void debug_command_runtime_configure_motion(
         &debug_command_runtime_motion,
         robot_ready ? robot : 0,
         robot_ready ? debug_command_runtime_recover_robot : 0,
-        robot_ready ? &debug_command_runtime_motion_recovery_context : 0);
+        robot_ready ? &debug_command_runtime_motion_recovery_context : 0,
+        debug_command_runtime_motion_service_ticks_per_update(pca9685_device));
 }
 
 static bool debug_command_runtime_recover_robot(void *context, robot_arm_t *robot)
