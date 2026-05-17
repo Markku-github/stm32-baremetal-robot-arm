@@ -292,11 +292,19 @@ static bool debug_command_handler_has_delay_support(const debug_command_handler_
     return (command_context != 0) && (command_context->delay_ms != 0);
 }
 
+static bool debug_command_handler_has_assume_home_execution_path(const debug_command_handler_context_t *command_context)
+{
+    return (command_context != 0)
+        && (command_context->robot != 0)
+        && (command_context->assume_home != 0);
+}
+
 static bool debug_command_handler_has_home_execution_path(const debug_command_handler_context_t *command_context)
 {
     return (command_context != 0)
-        && command_context->robot_ready
-        && ((command_context->schedule_home != 0) || (command_context->robot != 0));
+        && ((command_context->robot_ready
+                && ((command_context->schedule_home != 0) || (command_context->robot != 0)))
+            || (!command_context->robot_ready && debug_command_handler_has_assume_home_execution_path(command_context)));
 }
 
 static bool debug_command_handler_has_pose_execution_path(const debug_command_handler_context_t *command_context)
@@ -311,6 +319,13 @@ static bool debug_command_handler_trigger_usage_fault(const debug_command_handle
     return (command_context != 0)
         && (command_context->trigger_fault != 0)
         && command_context->trigger_fault(command_context->trigger_fault_context);
+}
+
+static bool debug_command_handler_execute_assume_home(const debug_command_handler_context_t *command_context)
+{
+    return (command_context != 0)
+        && (command_context->assume_home != 0)
+        && command_context->assume_home(command_context->assume_home_context);
 }
 
 static void debug_command_handler_wait_before_pose(
@@ -330,6 +345,11 @@ static bool debug_command_handler_execute_home_with_recovery(const debug_command
     if (command_context == 0)
     {
         return false;
+    }
+
+    if (!command_context->robot_ready)
+    {
+        return debug_command_handler_execute_assume_home(command_context);
     }
 
     if (command_context->schedule_home != 0)
@@ -478,7 +498,10 @@ void debug_command_handler_execute(
         }
         else
         {
-            debug_command_handler_write_command_ok(io, io_context, "HOME");
+            debug_command_handler_write_command_ok(
+                io,
+                io_context,
+                ((command_context != 0) && !command_context->robot_ready) ? "HOME_REFERENCE" : "HOME");
         }
 
         io->write_prompt(io_context);

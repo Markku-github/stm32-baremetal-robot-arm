@@ -12,6 +12,10 @@ typedef enum
     ROBOT_STARTUP_ERR_HOME,
 } robot_startup_status_t;
 
+robot_startup_status_t robot_startup_initialize(
+    robot_arm_t *robot,
+    const pca9685_device_t *device);
+
 robot_startup_status_t robot_startup_initialize_and_home(
     robot_arm_t *robot,
     const pca9685_device_t *device);

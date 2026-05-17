@@ -11,7 +11,7 @@ It keeps the tracked repository focused on durable validation scope and evidence
 This coverage map applies to the current MVP baseline on `main`, including:
 
 - boot-time PCA9685 and robot integration self-tests
-- runtime startup-HOME after the boot-time self-tests
+- runtime startup initialization without automatic motion after the boot-time self-tests
 - UART shell commands `HELP`, `HOME`, `POSE`, `POSE_DELAY`, and `STATUS`
 - robot direct-pose behavior using the dedicated robot calibration module
 
@@ -26,7 +26,7 @@ The current automated suite covers:
 - visible command-handler behavior for `HELP`, `HOME`, `POSE`, `POSE_DELAY`, `STATUS`, and error cases
 - UART shell line handling, buffer overflow handling, and transport-error recovery
 - robot HOME behavior, direct-pose clamping, and joint pulse mapping
-- runtime startup initialization plus automatic HOME orchestration
+- runtime startup initialization without automatic motion, preserved-hold restore when valid PCA9685 outputs already exist, plus an explicit first-`HOME` physical-reference handoff otherwise
 - shell-to-handler-to-robot command-path integration
 
 This automated baseline is required before merge, but it does not replace powered mechanical validation on the real target.
@@ -42,7 +42,7 @@ Verify the boot-time self-test sequence and shell readiness with external servo 
 Evidence expectation:
 
 - summarized UART output confirming the self-test sequence
-- confirmation that the runtime-ready message appears before the shell prompt
+- confirmation that the startup readiness guidance appears before the shell prompt
 
 ### Unpowered shell regression
 
@@ -55,11 +55,13 @@ Evidence expectation:
 
 ### Powered six-servo validation
 
-Verify startup-HOME behavior, commanded HOME behavior, and a conservative direct-pose move with real servo power enabled.
+Verify non-destructive startup behavior, preserved-hold restore when available, the explicit first-`HOME` startup handoff otherwise, commanded later HOME behavior, and a conservative direct-pose move with real servo power enabled.
 
 Evidence expectation:
 
 - summary of the first powered startup behavior after servo power is enabled
+- summary of whether startup restored an already-held pose or remained motionless and not ready
+- summary of the fallback `HOME_REFERENCE` startup handoff after the arm was placed physically at HOME when no preserved hold was available
 - summary of commanded `HOME` behavior and hold stability
 - summary of the conservative `POSE 10 30 120 135 150 10` behavior
 - explicit note of any unsafe motion, chatter, hard-stop contact, or direction mismatch

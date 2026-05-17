@@ -78,12 +78,31 @@ static bool test_robot_startup_validates_arguments(void)
 {
     robot_arm_t robot;
 
+    TEST_ASSERT_INT_EQUAL(ROBOT_STARTUP_ERR_INVALID_ARGUMENT, robot_startup_initialize(0, &test_device));
+    TEST_ASSERT_INT_EQUAL(ROBOT_STARTUP_ERR_INVALID_ARGUMENT, robot_startup_initialize(&robot, 0));
     TEST_ASSERT_INT_EQUAL(ROBOT_STARTUP_ERR_INVALID_ARGUMENT, robot_startup_initialize_and_home(0, &test_device));
     TEST_ASSERT_INT_EQUAL(ROBOT_STARTUP_ERR_INVALID_ARGUMENT, robot_startup_initialize_and_home(&robot, 0));
     return true;
 }
 
-static bool test_robot_startup_initializes_robot_and_moves_home(void)
+static bool test_robot_startup_initializes_robot_without_motion(void)
+{
+    robot_arm_t robot;
+    const servo_t *base_servo;
+    pca9685_fake_state_t *fake_state;
+
+    pca9685_fake_reset();
+    fake_state = pca9685_fake_state();
+
+    TEST_ASSERT_INT_EQUAL(ROBOT_STARTUP_OK, robot_startup_initialize(&robot, &test_device));
+    base_servo = robot_arm_get_servo_const(&robot, ROBOT_ARM_JOINT_BASE);
+    TEST_ASSERT_TRUE(base_servo != 0);
+    TEST_ASSERT_TRUE(base_servo->device == &test_device);
+    TEST_ASSERT_UINT32_EQUAL(0U, fake_state->call_count);
+    return true;
+}
+
+static bool test_robot_startup_initialize_and_home_moves_home(void)
 {
     robot_arm_t robot;
     robot_arm_pose_t current_pose;
@@ -127,7 +146,8 @@ int main(void)
         bool (*function)(void);
     } tests[] = {
         { "robot_startup_validates_arguments", test_robot_startup_validates_arguments },
-        { "robot_startup_initializes_robot_and_moves_home", test_robot_startup_initializes_robot_and_moves_home },
+        { "robot_startup_initializes_robot_without_motion", test_robot_startup_initializes_robot_without_motion },
+        { "robot_startup_initialize_and_home_moves_home", test_robot_startup_initialize_and_home_moves_home },
         { "robot_startup_reports_home_failure", test_robot_startup_reports_home_failure },
     };
     uint32_t index;

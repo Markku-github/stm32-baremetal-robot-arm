@@ -22,7 +22,7 @@ void debug_command_runtime_service_motion(
 
 void debug_command_runtime_process_input(
 	bool debug_uart_rx_ready,
-	bool robot_ready,
+	bool *robot_ready,
 	robot_arm_t *robot,
 	pca9685_device_t *pca9685_device);
 

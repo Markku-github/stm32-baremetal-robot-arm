@@ -11,9 +11,11 @@
 #include <stdbool.h>
 
 #include "pca9685.h"
+#include "robot_arm.h"
 
 bool boot_self_test_run_pca9685(pca9685_device_t *device);
 bool boot_self_test_run_robot_home(pca9685_device_t *device);
 bool boot_self_test_run_robot_direct_pose(pca9685_device_t *device);
+bool boot_self_test_restore_preserved_robot_outputs(robot_arm_t *robot);
 
 #endif

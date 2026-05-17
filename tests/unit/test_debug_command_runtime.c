@@ -182,6 +182,12 @@ robot_arm_status_t robot_arm_init(robot_arm_t *robot, const pca9685_device_t *de
     return ROBOT_ARM_OK;
 }
 
+robot_arm_status_t robot_arm_assume_home(robot_arm_t *robot)
+{
+    (void)robot;
+    return ROBOT_ARM_OK;
+}
+
 void debug_command_handler_execute(
     const char *command_line,
     const debug_command_handler_context_t *command_context,
