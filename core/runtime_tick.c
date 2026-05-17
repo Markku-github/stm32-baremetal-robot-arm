@@ -10,8 +10,6 @@
 #include "stm32f767_registers.h"
 #include "system_stm32f7xx.h"
 
-#define RUNTIME_TICK_FREQUENCY_HZ 1000U
-
 static volatile uint32_t runtime_tick_milliseconds = 0U;
 
 bool runtime_tick_init(void)

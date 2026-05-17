@@ -11,6 +11,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define RUNTIME_TICK_FREQUENCY_HZ 1000U
+#define RUNTIME_TICK_FREQUENCY_HZ_TEXT "1000"
+
 bool runtime_tick_init(void);
 uint32_t runtime_tick_now_ms(void);
 bool runtime_tick_deadline_reached(uint32_t start_ms, uint32_t delay_ms, uint32_t now_ms);

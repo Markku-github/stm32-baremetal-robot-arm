@@ -15,12 +15,11 @@
 #include "pca9685.h"
 #include "robot_arm.h"
 #include "robot_startup.h"
+#include "runtime_contract.h"
 #include "runtime_led.h"
 #include "runtime_log.h"
 #include "runtime_status.h"
 #include "runtime_tick.h"
-
-#define MAIN_PERIODIC_TICK_MS 1U
 
 /**
  * @brief  Initialize the board, run controller self-tests, and enter the UART command loop
@@ -69,6 +68,7 @@ int main(void)
     {
         runtime_log_write_line(RUNTIME_LOG_LEVEL_INFO, "Booting...");
         runtime_status_log_boot_snapshot();
+        runtime_contract_log_current_baseline();
     }
 
     if (boot_self_test_run_pca9685(&pca9685_device))
@@ -147,7 +147,7 @@ int main(void)
             debug_command_runtime_process_input(debug_uart_rx_ready, robot_ready, &robot, &pca9685_device);
         }
 
-        if (runtime_tick_periodic_due(now_ms, MAIN_PERIODIC_TICK_MS, &last_periodic_tick_ms))
+        if (runtime_tick_periodic_due(now_ms, RUNTIME_CONTRACT_MAIN_SERVICE_INTERVAL_MS, &last_periodic_tick_ms))
         {
             runtime_led_tick(&runtime_led);
         }
