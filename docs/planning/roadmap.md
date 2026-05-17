@@ -78,7 +78,7 @@ Testing is part of V1 itself, not a later side track. Each V1 slice should bring
 
 Planned tagged baseline lines:
 
-- `v0.2.x` - observability and control-foundation baseline
+- ~~`v0.2.x` - observability and control-foundation baseline~~
 - `v0.3.x` - motion safety baseline
 - `v0.4.x` - runtime state and recovery baseline
 - `v0.5.x` - shell usability baseline
@@ -86,25 +86,25 @@ Planned tagged baseline lines:
 
 V1 feature and testing alignment:
 
-- `v0.2.x`: open T1 around logging, fault visibility, and the early control-foundation seam; keep T2 limited to low-risk boot, status, and observability checks
+- ~~`v0.2.x`: open T1 around logging, fault visibility, and the early control-foundation seam; keep T2 limited to low-risk boot, status, and observability checks~~
 - `v0.3.x`: open T1 motion-control host coverage and T2 manual powered motion-safety validation in parallel with the first smooth-motion work
 - `v0.4.x`: expand T1 around state handling, timeout and fault supervision, and the focused recovery behavior that depends on the stronger runtime model
 - `v0.5.x`: expand T1 shell regression coverage so operator-usability work reduces retest cost instead of increasing it
 - V1 closeout review and validation: rerun and deepen the relevant T1 and T2 coverage, close justified evidence gaps, and decide whether `v1.0.0` is honest
 - T3 exploration may begin late in V1 if the observability and runtime baselines are stable enough, but it is not a prerequisite for opening or completing the main V1 slices
 
-### v0.2.x - Observability and control-foundation baseline
+### ~~v0.2.x - Observability and control-foundation baseline~~
 
-Planned:
+Completed across `v0.2.0` and `v0.2.1`:
 
-- structured runtime logging with `DEBUG`, `INFO`, `WARNING`, and `ERROR` severities
-- build-time log filtering so lower-priority logs can be compiled out of tighter builds
-- a dedicated debug-log transport over the Nucleo ST-LINK VCP path when available, while keeping the operator command path separate on the application UART
-- three-LED indication for boot, ready, activity, warning or degraded operation, and error states
-- minimal unexpected-fault capture plus startup or runtime diagnostics, including last reset or fault reason visibility
-- a cleaner bare-metal control foundation: timer or tick source, event handoff, and a documented engineering contract for control cadence and practical response bounds
+- ~~structured runtime logging with `DEBUG`, `INFO`, `WARNING`, and `ERROR` severities~~
+- ~~build-time log filtering so lower-priority logs can be compiled out of tighter builds~~
+- ~~a dedicated debug-log transport over the Nucleo ST-LINK VCP path when available, while keeping the operator command path separate on the application UART~~
+- ~~three-LED indication for boot, ready, activity, warning or degraded operation, and error states~~
+- ~~minimal unexpected-fault capture plus startup or runtime diagnostics, including last reset or fault reason visibility~~
+- ~~a cleaner bare-metal control foundation: timer or tick source, event handoff, and a documented engineering contract for control cadence and practical response bounds~~
 
-Possible internal sub-phases:
+Delivered internal sub-phases:
 
 - logging core: severity model, compile-time threshold, formatting contract, and a no-allocation implementation shape
 - transport and host workflow: ST-LINK VCP logging plus the existing operator command UART, with a single-link fallback only if the separated path is unavailable
@@ -112,6 +112,13 @@ Possible internal sub-phases:
 - fault and visibility seam: latched unexpected-fault info, last reset or fault reason, focused `STATUS` snapshot behavior, and low-risk diagnostic coverage
 - LED and control-foundation gate: three-LED state mapping, tick or event handoff, and validation that the early runtime contract is clear enough for later motion work
 - engineering-contract gate: document control tick frequency, expected motion update cadence, and any practical command-response bounds needed for honest V1 claims
+
+Current conservative contract anchor after `v0.2.0` and the first small `v0.2.1` follow-up:
+
+- control tick frequency: `1000 Hz`
+- current recurring main/control service cadence: `1 ms`
+- no separate periodic motion-update cadence is claimed yet, because the active motion path is still the direct-pose baseline rather than smooth periodic motion
+- the current `POSE_DELAY` response-side claim is only that it prints `WAIT POSE <delay> s` before the wait begins
 
 ### v0.3.x - Motion safety baseline
 
