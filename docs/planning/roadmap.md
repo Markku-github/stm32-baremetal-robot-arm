@@ -113,6 +113,13 @@ Possible internal sub-phases:
 - LED and control-foundation gate: three-LED state mapping, tick or event handoff, and validation that the early runtime contract is clear enough for later motion work
 - engineering-contract gate: document control tick frequency, expected motion update cadence, and any practical command-response bounds needed for honest V1 claims
 
+Current conservative contract anchor after `v0.2.0` and the first small `v0.2.1` follow-up:
+
+- control tick frequency: `1000 Hz`
+- current recurring main/control service cadence: `1 ms`
+- no separate periodic motion-update cadence is claimed yet, because the active motion path is still the direct-pose baseline rather than smooth periodic motion
+- the current `POSE_DELAY` response-side claim is only that it prints `WAIT POSE <delay> s` before the wait begins
+
 ### v0.3.x - Motion safety baseline
 
 Planned:

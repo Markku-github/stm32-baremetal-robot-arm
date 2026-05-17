@@ -14,7 +14,8 @@ The current firmware on `main` uses a hybrid runtime model:
 - Command parsing and command execution run in main/control context.
 - UART TX is currently blocking/polling.
 - I2C transactions are currently blocking/polling.
-- The main loop still includes an artificial busy-wait pacing delay.
+- Recurring main-loop service work is scheduled from a SysTick-backed periodic seam rather than from an artificial pacing delay.
+- The current `POSE_DELAY` path still waits in main/control context against a tick-based deadline helper.
 - Servo pulse generation is correctly offloaded to the PCA9685 rather than being generated in software.
 
 This baseline is acceptable for the current MVP direct-pose command path, but it is not the desired long-term runtime architecture.
@@ -107,6 +108,7 @@ Allowed exceptions are narrow and explicit:
 
 - very short hardware stabilization waits during initialization
 - bounded early bring-up waits that are isolated and documented
+- the current early-V1 `POSE_DELAY` compatibility wait in main/control context, which is still bounded by the runtime tick seam while the project remains on the direct-pose baseline
 - temporary MVP-era compatibility code that already has a planned removal point
 
 Busy-wait constructs should not become the permanent pacing mechanism for the operational control loop.
@@ -190,6 +192,13 @@ For V1 this should include, where practical:
 - any practical command-response upper bounds worth claiming
 
 This does not require a heavy benchmarking subsystem. A small engineering contract supported by focused measurements or smoke checks is enough.
+
+The current early-V1 contract on `main` now anchors only these conservative claims:
+
+- control tick frequency: `1000 Hz` from the SysTick-backed runtime tick seam
+- current recurring main/control service cadence: `1 ms`
+- motion execution is still on the direct-pose baseline, so no separate periodic motion-update cadence is claimed yet
+- the current `POSE_DELAY` response-side claim is only that the shell prints `WAIT POSE <delay> s` before the wait begins
 
 ## Code quality and performance policy
 
