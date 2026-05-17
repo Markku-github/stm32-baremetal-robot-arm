@@ -12,6 +12,8 @@ The project has completed V0 bring-up and MVP direct-pose closeout.
 
 The `v0.1.0` tag is the accepted MVP baseline.
 
+The `v0.2.0`, `v0.2.1`, and `v0.3.0` tags are the accepted pre-V1-closeout baselines published so far.
+
 The short pre-V1 transition phase for planning, facilitation, and environment improvements is now complete.
 
 The current tracked feature phase is V1. Its first responsibility is to establish structured observability and a cleaner control foundation, then replace abrupt direct-pose jumps with a durable smooth-motion baseline and strengthen runtime control, operator workflow, and validation around that baseline.
