@@ -50,6 +50,7 @@ else()
         app/main.c
         app/robot_startup.c
         app/runtime_contract.c
+        app/runtime_motion.c
         app/runtime_led.c
         app/runtime_log.c
         bsp/board_nucleo_f767zi.c

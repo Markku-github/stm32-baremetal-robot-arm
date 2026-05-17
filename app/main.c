@@ -149,6 +149,7 @@ int main(void)
 
         if (runtime_tick_periodic_due(now_ms, RUNTIME_CONTRACT_MAIN_SERVICE_INTERVAL_MS, &last_periodic_tick_ms))
         {
+            debug_command_runtime_service_motion(robot_ready, &robot, &pca9685_device);
             runtime_led_tick(&runtime_led);
         }
     }

@@ -19,6 +19,8 @@ typedef void (*debug_command_handler_write_prompt_fn)(void *context);
 typedef bool (*debug_command_handler_recover_robot_fn)(void *context, robot_arm_t *robot);
 typedef void (*debug_command_handler_delay_ms_fn)(void *context, uint32_t delay_ms);
 typedef bool (*debug_command_handler_trigger_fault_fn)(void *context);
+typedef bool (*debug_command_handler_schedule_home_fn)(void *context);
+typedef bool (*debug_command_handler_schedule_pose_fn)(void *context, const robot_arm_pose_t *pose);
 
 typedef struct
 {
@@ -37,6 +39,9 @@ typedef struct
     void *delay_context;
     debug_command_handler_trigger_fault_fn trigger_fault;
     void *trigger_fault_context;
+    debug_command_handler_schedule_home_fn schedule_home;
+    debug_command_handler_schedule_pose_fn schedule_pose;
+    void *motion_context;
 } debug_command_handler_context_t;
 
 void debug_command_handler_execute(

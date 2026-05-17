@@ -292,6 +292,20 @@ static bool debug_command_handler_has_delay_support(const debug_command_handler_
     return (command_context != 0) && (command_context->delay_ms != 0);
 }
 
+static bool debug_command_handler_has_home_execution_path(const debug_command_handler_context_t *command_context)
+{
+    return (command_context != 0)
+        && command_context->robot_ready
+        && ((command_context->schedule_home != 0) || (command_context->robot != 0));
+}
+
+static bool debug_command_handler_has_pose_execution_path(const debug_command_handler_context_t *command_context)
+{
+    return (command_context != 0)
+        && command_context->robot_ready
+        && ((command_context->schedule_pose != 0) || (command_context->robot != 0));
+}
+
 static bool debug_command_handler_trigger_usage_fault(const debug_command_handler_context_t *command_context)
 {
     return (command_context != 0)
@@ -313,7 +327,17 @@ static void debug_command_handler_wait_before_pose(
 
 static bool debug_command_handler_execute_home_with_recovery(const debug_command_handler_context_t *command_context)
 {
-    if ((command_context == 0) || (command_context->robot == 0))
+    if (command_context == 0)
+    {
+        return false;
+    }
+
+    if (command_context->schedule_home != 0)
+    {
+        return command_context->schedule_home(command_context->motion_context);
+    }
+
+    if (command_context->robot == 0)
     {
         return false;
     }
@@ -335,7 +359,17 @@ static bool debug_command_handler_execute_pose_with_recovery(
     const debug_command_handler_context_t *command_context,
     const robot_arm_pose_t *pose)
 {
-    if ((command_context == 0) || (command_context->robot == 0) || (pose == 0))
+    if ((command_context == 0) || (pose == 0))
+    {
+        return false;
+    }
+
+    if (command_context->schedule_pose != 0)
+    {
+        return command_context->schedule_pose(command_context->motion_context, pose);
+    }
+
+    if (command_context->robot == 0)
     {
         return false;
     }
@@ -434,7 +468,7 @@ void debug_command_handler_execute(
         {
             io->write_string(io_context, "ERR INVALID_ARGUMENT\r\n");
         }
-        else if (!robot_ready || (robot == 0))
+        else if (!debug_command_handler_has_home_execution_path(command_context))
         {
             io->write_string(io_context, "ERR CONTROLLER_NOT_READY\r\n");
         }
@@ -455,7 +489,7 @@ void debug_command_handler_execute(
     {
         robot_arm_pose_t pose;
 
-        if (!robot_ready || (robot == 0))
+        if (!debug_command_handler_has_pose_execution_path(command_context))
         {
             io->write_string(io_context, "ERR CONTROLLER_NOT_READY\r\n");
         }
@@ -481,7 +515,7 @@ void debug_command_handler_execute(
         robot_arm_pose_t pose;
         uint32_t delay_seconds = 0U;
 
-        if (!robot_ready || (robot == 0))
+        if (!debug_command_handler_has_pose_execution_path(command_context))
         {
             io->write_string(io_context, "ERR CONTROLLER_NOT_READY\r\n");
         }

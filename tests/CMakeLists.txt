@@ -3,6 +3,7 @@ set(DEBUG_COMMAND_HANDLER_UNIT_TEST_TARGET debug_command_handler_unit_tests)
 set(DEBUG_COMMAND_PARSER_UNIT_TEST_TARGET debug_command_parser_unit_tests)
 set(DEBUG_COMMAND_SHELL_UNIT_TEST_TARGET debug_command_shell_unit_tests)
 set(DEBUG_COMMAND_RUNTIME_UNIT_TEST_TARGET debug_command_runtime_unit_tests)
+set(RUNTIME_MOTION_UNIT_TEST_TARGET runtime_motion_unit_tests)
 set(RUNTIME_LED_UNIT_TEST_TARGET runtime_led_unit_tests)
 set(RUNTIME_CONTRACT_UNIT_TEST_TARGET runtime_contract_unit_tests)
 set(RUNTIME_TICK_UNIT_TEST_TARGET runtime_tick_unit_tests)
@@ -41,6 +42,15 @@ add_executable(${DEBUG_COMMAND_SHELL_UNIT_TEST_TARGET}
 add_executable(${DEBUG_COMMAND_RUNTIME_UNIT_TEST_TARGET}
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_debug_command_runtime.c
     ${CMAKE_SOURCE_DIR}/app/debug_command_runtime.c
+)
+
+add_executable(${RUNTIME_MOTION_UNIT_TEST_TARGET}
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_runtime_motion.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/fakes/pca9685_fake.c
+    ${CMAKE_SOURCE_DIR}/app/runtime_motion.c
+    ${CMAKE_SOURCE_DIR}/drivers/servo/servo.c
+    ${CMAKE_SOURCE_DIR}/robot/robot_arm.c
+    ${CMAKE_SOURCE_DIR}/robot/robot_arm_joint_calibration.c
 )
 
 add_executable(${RUNTIME_LED_UNIT_TEST_TARGET}
@@ -142,6 +152,15 @@ target_include_directories(${DEBUG_COMMAND_RUNTIME_UNIT_TEST_TARGET} PRIVATE
     ${CMAKE_SOURCE_DIR}/robot
 )
 
+target_include_directories(${RUNTIME_MOTION_UNIT_TEST_TARGET} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/fakes
+    ${CMAKE_SOURCE_DIR}/app
+    ${CMAKE_SOURCE_DIR}/bsp
+    ${CMAKE_SOURCE_DIR}/drivers/pca9685
+    ${CMAKE_SOURCE_DIR}/drivers/servo
+    ${CMAKE_SOURCE_DIR}/robot
+)
+
 target_include_directories(${RUNTIME_LED_UNIT_TEST_TARGET} PRIVATE
     ${CMAKE_SOURCE_DIR}/app
     ${CMAKE_SOURCE_DIR}/bsp
@@ -199,6 +218,7 @@ if(MSVC)
     target_compile_options(${DEBUG_COMMAND_PARSER_UNIT_TEST_TARGET} PRIVATE /W4 /WX)
     target_compile_options(${DEBUG_COMMAND_SHELL_UNIT_TEST_TARGET} PRIVATE /W4 /WX)
     target_compile_options(${DEBUG_COMMAND_RUNTIME_UNIT_TEST_TARGET} PRIVATE /W4 /WX)
+    target_compile_options(${RUNTIME_MOTION_UNIT_TEST_TARGET} PRIVATE /W4 /WX)
     target_compile_options(${RUNTIME_LED_UNIT_TEST_TARGET} PRIVATE /W4 /WX)
     target_compile_options(${RUNTIME_CONTRACT_UNIT_TEST_TARGET} PRIVATE /W4 /WX)
     target_compile_options(${RUNTIME_TICK_UNIT_TEST_TARGET} PRIVATE /W4 /WX)
@@ -212,6 +232,7 @@ else()
     target_compile_options(${DEBUG_COMMAND_PARSER_UNIT_TEST_TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
     target_compile_options(${DEBUG_COMMAND_SHELL_UNIT_TEST_TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
     target_compile_options(${DEBUG_COMMAND_RUNTIME_UNIT_TEST_TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(${RUNTIME_MOTION_UNIT_TEST_TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
     target_compile_options(${RUNTIME_LED_UNIT_TEST_TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
     target_compile_options(${RUNTIME_CONTRACT_UNIT_TEST_TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
     target_compile_options(${RUNTIME_TICK_UNIT_TEST_TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -226,6 +247,7 @@ add_test(NAME ${DEBUG_COMMAND_HANDLER_UNIT_TEST_TARGET} COMMAND ${DEBUG_COMMAND_
 add_test(NAME ${DEBUG_COMMAND_PARSER_UNIT_TEST_TARGET} COMMAND ${DEBUG_COMMAND_PARSER_UNIT_TEST_TARGET})
 add_test(NAME ${DEBUG_COMMAND_SHELL_UNIT_TEST_TARGET} COMMAND ${DEBUG_COMMAND_SHELL_UNIT_TEST_TARGET})
 add_test(NAME ${DEBUG_COMMAND_RUNTIME_UNIT_TEST_TARGET} COMMAND ${DEBUG_COMMAND_RUNTIME_UNIT_TEST_TARGET})
+add_test(NAME ${RUNTIME_MOTION_UNIT_TEST_TARGET} COMMAND ${RUNTIME_MOTION_UNIT_TEST_TARGET})
 add_test(NAME ${RUNTIME_LED_UNIT_TEST_TARGET} COMMAND ${RUNTIME_LED_UNIT_TEST_TARGET})
 add_test(NAME ${RUNTIME_CONTRACT_UNIT_TEST_TARGET} COMMAND ${RUNTIME_CONTRACT_UNIT_TEST_TARGET})
 add_test(NAME ${RUNTIME_TICK_UNIT_TEST_TARGET} COMMAND ${RUNTIME_TICK_UNIT_TEST_TARGET})
@@ -238,6 +260,7 @@ set_tests_properties(${DEBUG_COMMAND_HANDLER_UNIT_TEST_TARGET} PROPERTIES LABELS
 set_tests_properties(${DEBUG_COMMAND_PARSER_UNIT_TEST_TARGET} PROPERTIES LABELS "unit")
 set_tests_properties(${DEBUG_COMMAND_SHELL_UNIT_TEST_TARGET} PROPERTIES LABELS "unit")
 set_tests_properties(${DEBUG_COMMAND_RUNTIME_UNIT_TEST_TARGET} PROPERTIES LABELS "unit")
+set_tests_properties(${RUNTIME_MOTION_UNIT_TEST_TARGET} PROPERTIES LABELS "unit")
 set_tests_properties(${RUNTIME_LED_UNIT_TEST_TARGET} PROPERTIES LABELS "unit")
 set_tests_properties(${RUNTIME_CONTRACT_UNIT_TEST_TARGET} PROPERTIES LABELS "unit")
 set_tests_properties(${RUNTIME_TICK_UNIT_TEST_TARGET} PROPERTIES LABELS "unit")

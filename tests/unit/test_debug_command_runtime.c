@@ -8,12 +8,17 @@
 #include "debug_command_runtime.h"
 #include "debug_command_shell.h"
 #include "pca9685.h"
+#include "runtime_motion.h"
 #include "runtime_status.h"
 
 uint32_t SystemCoreClock = 16000000U;
 
 static bool stub_debug_uart_overflowed = false;
 static bool stub_debug_uart_has_pending_input = false;
+static bool stub_runtime_motion_init_called = false;
+static bool stub_runtime_motion_configure_called = false;
+static bool stub_runtime_motion_clear_called = false;
+static bool stub_runtime_motion_service_called = false;
 
 #define TEST_ASSERT_TRUE(condition) \
     do \
@@ -55,6 +60,62 @@ void debug_console_write_prompt_adapter(void *context)
 void runtime_status_capture_fault_and_reset(runtime_status_fault_kind_t fault_kind)
 {
     (void)fault_kind;
+}
+
+void runtime_motion_init(runtime_motion_t *motion)
+{
+    (void)motion;
+    stub_runtime_motion_init_called = true;
+}
+
+void runtime_motion_configure(
+    runtime_motion_t *motion,
+    robot_arm_t *robot,
+    runtime_motion_recover_robot_fn recover_robot,
+    void *recover_context)
+{
+    (void)motion;
+    (void)robot;
+    (void)recover_robot;
+    (void)recover_context;
+    stub_runtime_motion_configure_called = true;
+
+    if (robot == 0)
+    {
+        stub_runtime_motion_clear_called = true;
+    }
+}
+
+void runtime_motion_clear(runtime_motion_t *motion)
+{
+    (void)motion;
+    stub_runtime_motion_clear_called = true;
+}
+
+bool runtime_motion_has_pending_request(const runtime_motion_t *motion)
+{
+    (void)motion;
+    return false;
+}
+
+bool runtime_motion_schedule_home(runtime_motion_t *motion)
+{
+    (void)motion;
+    return true;
+}
+
+bool runtime_motion_schedule_pose(runtime_motion_t *motion, const robot_arm_pose_t *pose)
+{
+    (void)motion;
+    (void)pose;
+    return true;
+}
+
+bool runtime_motion_service(runtime_motion_t *motion)
+{
+    (void)motion;
+    stub_runtime_motion_service_called = true;
+    return true;
 }
 
 uint32_t runtime_tick_now_ms(void)
@@ -166,6 +227,10 @@ static void reset_stubs(void)
 {
     stub_debug_uart_overflowed = false;
     stub_debug_uart_has_pending_input = false;
+    stub_runtime_motion_init_called = false;
+    stub_runtime_motion_configure_called = false;
+    stub_runtime_motion_clear_called = false;
+    stub_runtime_motion_service_called = false;
 }
 
 static bool test_has_pending_work_rejects_unready_uart(void)
@@ -204,6 +269,35 @@ static bool test_has_pending_work_reports_idle_when_no_work_exists(void)
     return true;
 }
 
+static bool test_service_motion_configures_and_services_when_robot_ready(void)
+{
+    robot_arm_t robot;
+    pca9685_device_t device;
+
+    reset_stubs();
+    debug_command_runtime_service_motion(true, &robot, &device);
+
+    TEST_ASSERT_TRUE(stub_runtime_motion_init_called);
+    TEST_ASSERT_TRUE(stub_runtime_motion_configure_called);
+    TEST_ASSERT_TRUE(stub_runtime_motion_service_called);
+    TEST_ASSERT_FALSE(stub_runtime_motion_clear_called);
+    return true;
+}
+
+static bool test_service_motion_only_configures_when_robot_not_ready(void)
+{
+    robot_arm_t robot;
+    pca9685_device_t device;
+
+    reset_stubs();
+    debug_command_runtime_service_motion(false, &robot, &device);
+
+    TEST_ASSERT_TRUE(stub_runtime_motion_configure_called);
+    TEST_ASSERT_FALSE(stub_runtime_motion_service_called);
+    TEST_ASSERT_TRUE(stub_runtime_motion_clear_called);
+    return true;
+}
+
 int main(void)
 {
     const struct
@@ -215,6 +309,8 @@ int main(void)
         { "has_pending_work_reports_overflow", test_has_pending_work_reports_overflow },
         { "has_pending_work_reports_buffered_input", test_has_pending_work_reports_buffered_input },
         { "has_pending_work_reports_idle_when_no_work_exists", test_has_pending_work_reports_idle_when_no_work_exists },
+        { "service_motion_configures_and_services_when_robot_ready", test_service_motion_configures_and_services_when_robot_ready },
+        { "service_motion_only_configures_when_robot_not_ready", test_service_motion_only_configures_when_robot_not_ready },
     };
     unsigned int index;
     unsigned int failed_count = 0U;

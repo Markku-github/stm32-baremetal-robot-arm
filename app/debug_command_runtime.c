@@ -14,6 +14,7 @@
 #include "debug_command_handler.h"
 #include "debug_command_shell.h"
 #include "pca9685.h"
+#include "runtime_motion.h"
 #include "runtime_tick.h"
 #include "runtime_status.h"
 
@@ -23,6 +24,12 @@ typedef struct
 {
     pca9685_device_t *device;
 } debug_command_runtime_recovery_context_t;
+
+static runtime_motion_t debug_command_runtime_motion;
+static bool debug_command_runtime_motion_initialized = false;
+static debug_command_runtime_recovery_context_t debug_command_runtime_motion_recovery_context = { 0 };
+
+static bool debug_command_runtime_recover_robot(void *context, robot_arm_t *robot);
 
 static const debug_command_handler_io_t debug_command_handler_io = {
     .write_string = debug_console_write_string_adapter,
@@ -39,6 +46,31 @@ static void debug_command_runtime_delay_ms(void *context, uint32_t delay_ms)
     while (!runtime_tick_deadline_reached(start_ms, delay_ms, runtime_tick_now_ms()))
     {
     }
+}
+
+static void debug_command_runtime_ensure_motion_initialized(void)
+{
+    if (debug_command_runtime_motion_initialized)
+    {
+        return;
+    }
+
+    runtime_motion_init(&debug_command_runtime_motion);
+    debug_command_runtime_motion_initialized = true;
+}
+
+static void debug_command_runtime_configure_motion(
+    bool robot_ready,
+    robot_arm_t *robot,
+    pca9685_device_t *pca9685_device)
+{
+    debug_command_runtime_ensure_motion_initialized();
+    debug_command_runtime_motion_recovery_context.device = pca9685_device;
+    runtime_motion_configure(
+        &debug_command_runtime_motion,
+        robot_ready ? robot : 0,
+        robot_ready ? debug_command_runtime_recover_robot : 0,
+        robot_ready ? &debug_command_runtime_motion_recovery_context : 0);
 }
 
 static bool debug_command_runtime_recover_robot(void *context, robot_arm_t *robot)
@@ -97,6 +129,16 @@ static bool debug_command_runtime_trigger_usage_fault(void *context)
     return true;
 }
 
+static bool debug_command_runtime_schedule_home(void *context)
+{
+    return runtime_motion_schedule_home((runtime_motion_t *)context);
+}
+
+static bool debug_command_runtime_schedule_pose(void *context, const robot_arm_pose_t *pose)
+{
+    return runtime_motion_schedule_pose((runtime_motion_t *)context, pose);
+}
+
 static const debug_command_shell_io_t debug_command_shell_io = {
     .write_string = debug_console_write_string_adapter,
     .write_byte = debug_console_write_byte_adapter,
@@ -115,6 +157,20 @@ bool debug_command_runtime_has_pending_work(bool debug_uart_rx_ready)
         || board_nucleo_f767zi_debug_uart_has_pending_input();
 }
 
+void debug_command_runtime_service_motion(
+    bool robot_ready,
+    robot_arm_t *robot,
+    pca9685_device_t *pca9685_device)
+{
+    debug_command_runtime_configure_motion(robot_ready, robot, pca9685_device);
+    if (!robot_ready)
+    {
+        return;
+    }
+
+    (void)runtime_motion_service(&debug_command_runtime_motion);
+}
+
 void debug_command_runtime_process_input(
     bool debug_uart_rx_ready,
     bool robot_ready,
@@ -123,22 +179,24 @@ void debug_command_runtime_process_input(
 {
     static debug_command_shell_t command_shell;
     debug_command_handler_context_t execution_context;
-    debug_command_runtime_recovery_context_t recovery_context;
 
     if (!debug_uart_rx_ready)
     {
         return;
     }
 
-    recovery_context.device = pca9685_device;
+    debug_command_runtime_configure_motion(robot_ready, robot, pca9685_device);
     execution_context.robot_ready = robot_ready;
     execution_context.robot = robot_ready ? robot : 0;
     execution_context.recover_robot = robot_ready ? debug_command_runtime_recover_robot : 0;
-    execution_context.recover_context = robot_ready ? &recovery_context : 0;
+    execution_context.recover_context = robot_ready ? &debug_command_runtime_motion_recovery_context : 0;
     execution_context.delay_ms = robot_ready ? debug_command_runtime_delay_ms : 0;
     execution_context.delay_context = 0;
     execution_context.trigger_fault = debug_command_runtime_trigger_usage_fault;
     execution_context.trigger_fault_context = 0;
+    execution_context.schedule_home = robot_ready ? debug_command_runtime_schedule_home : 0;
+    execution_context.schedule_pose = robot_ready ? debug_command_runtime_schedule_pose : 0;
+    execution_context.motion_context = robot_ready ? &debug_command_runtime_motion : 0;
 
     if (board_nucleo_f767zi_debug_uart_overflowed())
     {

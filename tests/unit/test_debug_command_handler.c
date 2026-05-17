@@ -175,6 +175,17 @@ typedef struct
     bool was_called;
 } debug_command_handler_fault_test_context_t;
 
+typedef struct
+{
+    bool was_called;
+} debug_command_handler_schedule_home_test_context_t;
+
+typedef struct
+{
+    bool was_called;
+    robot_arm_pose_t last_pose;
+} debug_command_handler_schedule_pose_test_context_t;
+
 static uint32_t test_runtime_status_reset_flags_storage = 0U;
 static runtime_status_fault_kind_t test_runtime_status_fault_kind_storage = RUNTIME_STATUS_FAULT_NONE;
 
@@ -249,6 +260,33 @@ static bool trigger_fault_for_test(void *context)
     }
 
     fault_context->was_called = true;
+    return true;
+}
+
+static bool schedule_home_for_test(void *context)
+{
+    debug_command_handler_schedule_home_test_context_t *schedule_context = (debug_command_handler_schedule_home_test_context_t *)context;
+
+    if (schedule_context == 0)
+    {
+        return false;
+    }
+
+    schedule_context->was_called = true;
+    return true;
+}
+
+static bool schedule_pose_for_test(void *context, const robot_arm_pose_t *pose)
+{
+    debug_command_handler_schedule_pose_test_context_t *schedule_context = (debug_command_handler_schedule_pose_test_context_t *)context;
+
+    if ((schedule_context == 0) || (pose == 0))
+    {
+        return false;
+    }
+
+    schedule_context->was_called = true;
+    schedule_context->last_pose = *pose;
     return true;
 }
 
@@ -491,6 +529,50 @@ static bool test_home_command_resets_pose_and_reports_ok(void)
     return true;
 }
 
+static bool test_home_command_schedules_home_when_callback_is_provided(void)
+{
+    debug_command_handler_test_output_t output;
+    debug_command_handler_context_t context = { 0 };
+    debug_command_handler_schedule_home_test_context_t schedule_context = { false };
+
+    reset_runtime_status_snapshot();
+    context.robot_ready = true;
+    context.schedule_home = schedule_home_for_test;
+    context.motion_context = &schedule_context;
+
+    reset_output(&output);
+    debug_command_handler_execute("HOME", &context, &test_handler_io, &output);
+
+    TEST_ASSERT_TRUE(schedule_context.was_called);
+    TEST_ASSERT_STRING_EQUAL("OK HOME\r\n> ", output.output);
+    return true;
+}
+
+static bool test_pose_command_schedules_pose_when_callback_is_provided(void)
+{
+    debug_command_handler_test_output_t output;
+    debug_command_handler_context_t context = { 0 };
+    debug_command_handler_schedule_pose_test_context_t schedule_context = { false };
+
+    reset_runtime_status_snapshot();
+    context.robot_ready = true;
+    context.schedule_pose = schedule_pose_for_test;
+    context.motion_context = &schedule_context;
+
+    reset_output(&output);
+    debug_command_handler_execute("POSE 10 30 120 135 150 10", &context, &test_handler_io, &output);
+
+    TEST_ASSERT_TRUE(schedule_context.was_called);
+    TEST_ASSERT_STRING_EQUAL("OK POSE\r\n> ", output.output);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(10.0f), schedule_context.last_pose.base_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(30.0f), schedule_context.last_pose.shoulder_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_ELBOW_POSE_RAD, schedule_context.last_pose.elbow_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_TILT_POSE_RAD, schedule_context.last_pose.wrist_tilt_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_WRIST_ROTATE_POSE_RAD, schedule_context.last_pose.wrist_rotate_rad);
+    TEST_ASSERT_FLOAT_CLOSE(DEBUG_COMMAND_HANDLER_TEST_DEG_TO_RAD(10.0f), schedule_context.last_pose.gripper_rad);
+    return true;
+}
+
 static bool test_unknown_command_reports_error(void)
 {
     debug_command_handler_test_output_t output;
@@ -519,6 +601,8 @@ int main(void)
         { "pose_command_recovers_from_single_servo_failure", test_pose_command_recovers_from_single_servo_failure },
         { "pose_delay_command_waits_then_updates_robot_and_reports_ok", test_pose_delay_command_waits_then_updates_robot_and_reports_ok },
         { "home_command_resets_pose_and_reports_ok", test_home_command_resets_pose_and_reports_ok },
+        { "home_command_schedules_home_when_callback_is_provided", test_home_command_schedules_home_when_callback_is_provided },
+        { "pose_command_schedules_pose_when_callback_is_provided", test_pose_command_schedules_pose_when_callback_is_provided },
         { "unknown_command_reports_error", test_unknown_command_reports_error },
     };
     unsigned int test_index;
