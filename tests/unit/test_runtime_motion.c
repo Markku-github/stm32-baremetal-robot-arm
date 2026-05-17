@@ -139,11 +139,20 @@ static bool test_schedule_pose_defers_application_until_service(void)
 
     TEST_ASSERT_TRUE(runtime_motion_schedule_pose(&motion, &pose));
     TEST_ASSERT_TRUE(runtime_motion_has_pending_request(&motion));
+    TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.base_rad);
 
     TEST_ASSERT_TRUE(runtime_motion_service(&motion));
     TEST_ASSERT_FALSE(runtime_motion_has_pending_request(&motion));
+    TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_FLOAT_CLOSE(0.0f, current_pose.base_rad);
+    TEST_ASSERT_FLOAT_CLOSE(0.0f, motion.current_pose.base_rad);
+    TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, motion.target_pose.base_rad);
+
+    TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+    TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, current_pose.base_rad);
     TEST_ASSERT_FLOAT_CLOSE(pose.shoulder_rad, current_pose.shoulder_rad);
@@ -170,11 +179,19 @@ static bool test_schedule_home_defers_application_until_service(void)
     runtime_motion_configure(&motion, &robot, 0, 0);
     TEST_ASSERT_TRUE(runtime_motion_schedule_home(&motion));
     TEST_ASSERT_TRUE(runtime_motion_has_pending_request(&motion));
+    TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
 
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, current_pose.base_rad);
 
     TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+    TEST_ASSERT_FALSE(runtime_motion_has_pending_request(&motion));
+    TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
+    TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
+    TEST_ASSERT_FLOAT_CLOSE(pose.base_rad, current_pose.base_rad);
+
+    TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+    TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_home_pose(&robot, &home_pose));
     TEST_ASSERT_INT_EQUAL(ROBOT_ARM_OK, robot_arm_get_current_pose(&robot, &current_pose));
     TEST_ASSERT_FLOAT_CLOSE(home_pose.base_rad, current_pose.base_rad);
@@ -198,6 +215,7 @@ static bool test_schedule_rejects_second_pending_request(void)
     fill_test_pose(&pose);
 
     TEST_ASSERT_TRUE(runtime_motion_schedule_pose(&motion, &pose));
+    TEST_ASSERT_TRUE(runtime_motion_service(&motion));
     TEST_ASSERT_FALSE(runtime_motion_schedule_home(&motion));
     return true;
 }
@@ -218,6 +236,10 @@ static bool test_service_recovers_once_from_single_servo_failure(void)
     TEST_ASSERT_TRUE(runtime_motion_schedule_pose(&motion, &pose));
 
     TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+    TEST_ASSERT_TRUE(runtime_motion_has_active_motion(&motion));
+
+    TEST_ASSERT_TRUE(runtime_motion_service(&motion));
+    TEST_ASSERT_FALSE(runtime_motion_has_active_motion(&motion));
     TEST_ASSERT_TRUE(recovery_context.was_called);
     TEST_ASSERT_UINT32_EQUAL((uint32_t)(ROBOT_ARM_JOINT_COUNT + 1U), pca9685_fake_state()->call_count);
     return true;

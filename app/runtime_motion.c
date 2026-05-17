@@ -9,19 +9,71 @@
 
 #include "runtime_log.h"
 
-static robot_arm_status_t runtime_motion_apply_pending_request(runtime_motion_t *motion)
+static void runtime_motion_zero_pose(robot_arm_pose_t *pose)
 {
-    if ((motion == 0) || (motion->robot == 0) || !motion->pending_request)
+    if (pose == 0)
+    {
+        return;
+    }
+
+    pose->base_rad = 0.0f;
+    pose->shoulder_rad = 0.0f;
+    pose->elbow_rad = 0.0f;
+    pose->wrist_tilt_rad = 0.0f;
+    pose->wrist_rotate_rad = 0.0f;
+    pose->gripper_rad = 0.0f;
+}
+
+static robot_arm_status_t runtime_motion_begin_pending_request(runtime_motion_t *motion)
+{
+    if ((motion == 0) || (motion->robot == 0) || !motion->pending_request || motion->motion_active)
     {
         return ROBOT_ARM_ERR_INVALID_ARGUMENT;
     }
 
-    if (motion->pending_home)
+    if (robot_arm_get_current_pose(motion->robot, &motion->current_pose) != ROBOT_ARM_OK)
     {
-        return robot_arm_home(motion->robot);
+        return ROBOT_ARM_ERR_SERVO;
     }
 
-    return robot_arm_set_pose_immediate(motion->robot, &motion->pending_pose);
+    if (motion->pending_home)
+    {
+        if (robot_arm_get_home_pose(motion->robot, &motion->target_pose) != ROBOT_ARM_OK)
+        {
+            return ROBOT_ARM_ERR_SERVO;
+        }
+    }
+    else
+    {
+        motion->target_pose = motion->pending_pose;
+    }
+
+    motion->motion_active = true;
+    motion->motion_home = motion->pending_home;
+    motion->pending_request = false;
+    motion->pending_home = false;
+    return ROBOT_ARM_OK;
+}
+
+static robot_arm_status_t runtime_motion_complete_active_motion(runtime_motion_t *motion)
+{
+    robot_arm_status_t status;
+
+    if ((motion == 0) || (motion->robot == 0) || !motion->motion_active)
+    {
+        return ROBOT_ARM_ERR_INVALID_ARGUMENT;
+    }
+
+    status = robot_arm_set_pose_immediate(motion->robot, &motion->target_pose);
+    if (status != ROBOT_ARM_OK)
+    {
+        return status;
+    }
+
+    motion->current_pose = motion->target_pose;
+    motion->motion_active = false;
+    motion->motion_home = false;
+    return ROBOT_ARM_OK;
 }
 
 void runtime_motion_init(runtime_motion_t *motion)
@@ -34,14 +86,13 @@ void runtime_motion_init(runtime_motion_t *motion)
     motion->robot = 0;
     motion->recover_robot = 0;
     motion->recover_context = 0;
+    runtime_motion_zero_pose(&motion->current_pose);
+    runtime_motion_zero_pose(&motion->target_pose);
+    runtime_motion_zero_pose(&motion->pending_pose);
     motion->pending_request = false;
     motion->pending_home = false;
-    motion->pending_pose.base_rad = 0.0f;
-    motion->pending_pose.shoulder_rad = 0.0f;
-    motion->pending_pose.elbow_rad = 0.0f;
-    motion->pending_pose.wrist_tilt_rad = 0.0f;
-    motion->pending_pose.wrist_rotate_rad = 0.0f;
-    motion->pending_pose.gripper_rad = 0.0f;
+    motion->motion_active = false;
+    motion->motion_home = false;
 }
 
 void runtime_motion_configure(
@@ -72,8 +123,13 @@ void runtime_motion_clear(runtime_motion_t *motion)
         return;
     }
 
+    runtime_motion_zero_pose(&motion->current_pose);
+    runtime_motion_zero_pose(&motion->target_pose);
+    runtime_motion_zero_pose(&motion->pending_pose);
     motion->pending_request = false;
     motion->pending_home = false;
+    motion->motion_active = false;
+    motion->motion_home = false;
 }
 
 bool runtime_motion_has_pending_request(const runtime_motion_t *motion)
@@ -81,9 +137,14 @@ bool runtime_motion_has_pending_request(const runtime_motion_t *motion)
     return (motion != 0) && motion->pending_request;
 }
 
+bool runtime_motion_has_active_motion(const runtime_motion_t *motion)
+{
+    return (motion != 0) && motion->motion_active;
+}
+
 bool runtime_motion_schedule_home(runtime_motion_t *motion)
 {
-    if ((motion == 0) || (motion->robot == 0) || motion->pending_request)
+    if ((motion == 0) || (motion->robot == 0) || motion->pending_request || motion->motion_active)
     {
         return false;
     }
@@ -95,7 +156,7 @@ bool runtime_motion_schedule_home(runtime_motion_t *motion)
 
 bool runtime_motion_schedule_pose(runtime_motion_t *motion, const robot_arm_pose_t *pose)
 {
-    if ((motion == 0) || (motion->robot == 0) || (pose == 0) || motion->pending_request)
+    if ((motion == 0) || (motion->robot == 0) || (pose == 0) || motion->pending_request || motion->motion_active)
     {
         return false;
     }
@@ -109,22 +170,40 @@ bool runtime_motion_schedule_pose(runtime_motion_t *motion, const robot_arm_pose
 bool runtime_motion_service(runtime_motion_t *motion)
 {
     robot_arm_status_t status;
-    const bool pending_home = (motion != 0) && motion->pending_home;
+    bool request_home;
 
-    if ((motion == 0) || !motion->pending_request)
+    if (motion == 0)
     {
         return true;
     }
 
-    status = runtime_motion_apply_pending_request(motion);
+    if (!motion->pending_request && !motion->motion_active)
+    {
+        return true;
+    }
+
+    request_home = motion->pending_request ? motion->pending_home : motion->motion_home;
+
+    if (motion->pending_request)
+    {
+        status = runtime_motion_begin_pending_request(motion);
+        if (status == ROBOT_ARM_OK)
+        {
+            return true;
+        }
+    }
+    else
+    {
+        status = runtime_motion_complete_active_motion(motion);
+    }
+
     if ((status != ROBOT_ARM_OK) && (motion->recover_robot != 0)
         && motion->recover_robot(motion->recover_context, motion->robot))
     {
-        status = runtime_motion_apply_pending_request(motion);
+        status = motion->motion_active
+            ? runtime_motion_complete_active_motion(motion)
+            : runtime_motion_begin_pending_request(motion);
     }
-
-    motion->pending_request = false;
-    motion->pending_home = false;
 
     if (status == ROBOT_ARM_OK)
     {
@@ -133,6 +212,6 @@ bool runtime_motion_service(runtime_motion_t *motion)
 
     runtime_log_write_line(
         RUNTIME_LOG_LEVEL_ERROR,
-        pending_home ? "Scheduled HOME command failed." : "Scheduled POSE command failed.");
+        request_home ? "Scheduled HOME command failed." : "Scheduled POSE command failed.");
     return false;
 }
